@@ -18,6 +18,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "PlayerController/ShooterPlayerController.h"
+#include"Net/UnrealNetwork.h"
 
 AMainCharacter::AMainCharacter()
 {
@@ -401,8 +402,20 @@ void AMainCharacter::PlayElimBotEffect()
 	UGameplayStatics::PlaySoundAtLocation(this, ElimBotSound, SpawnLocation, FRotator::ZeroRotator);
 }
 
+void AMainCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME(AMainCharacter, OverlappingWeapon);
+}
 
+void AMainCharacter::OnRep_OverlappingWeapon()
+{
+	if (OverlappingWeapon)
+	{
+		OverlappingWeapon->ShowPickupWidget(true);
+	}
+}
 
 
 

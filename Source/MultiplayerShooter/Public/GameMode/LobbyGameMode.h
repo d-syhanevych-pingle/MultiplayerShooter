@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameMode.h"
+#include "ShooterGameMode.h"
 #include "LobbyGameMode.generated.h"
 
 /**
@@ -16,4 +17,11 @@ class MULTIPLAYERSHOOTER_API ALobbyGameMode : public AGameMode
 
 public:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
+
+	UPROPERTY(EditDefaultsOnly)
+	TArray<AShooterGameMode*> ArrayOfAvailableGameModes;
+
+private:
+	const FString GetRandomTravelPath();
+
 };

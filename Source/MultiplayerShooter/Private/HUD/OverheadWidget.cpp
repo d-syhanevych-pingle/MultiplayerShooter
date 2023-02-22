@@ -50,6 +50,10 @@ void UOverheadWidget::ShowPlayerNetRole(APawn* InPawn)
 	}
 	const FString RemoteRoleString = FString::Printf(TEXT("Remote Role is: %s"), *Role);
 	SetDisplayText(RemoteRoleString);
+	if (auto PlayerState = InPawn->GetPlayerState())
+	{
+		SetDisplayText(PlayerState->GetPlayerName());
+	}
 }
 
 void UOverheadWidget::ShowPlayerName(APawn* InPawn)

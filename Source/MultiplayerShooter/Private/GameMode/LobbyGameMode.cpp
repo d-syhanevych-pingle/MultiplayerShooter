@@ -3,6 +3,8 @@
 
 #include "GameMode/LobbyGameMode.h"
 #include "GameFramework/GameState.h"
+#include "GeneralProjectSettings.h"
+#include "DeveloperSettings/GameMapsModesDeveloperSettings.h"
 
 void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 {
@@ -13,9 +15,28 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 	{
 		UWorld* World = GetWorld();
 		if (World)
-		{
+		{			
 			bUseSeamlessTravel = true;
-			World->ServerTravel(FString("/Game/Maps/BlasterMap?listen"));
+			FString TravelURL = GetRandomTravelPath();
+			UE_LOG(LogTemp, Log, TEXT("ServerTravel - Travel to: %s"), *TravelURL);
+			World->ServerTravel(TravelURL);
 		}
 	}
+}
+
+const FString ALobbyGameMode::GetRandomTravelPath()
+{
+	/* Get Random Map */
+	const TArray<FMapDescription> AvaliableMaps = GetDefault<UGameMapsModesDeveloperSettings>()->AvaliableMaps;
+	int32 MapIndex = FMath::RandRange(0, AvaliableMaps.Num() - 1);
+	FString MapPath = AvaliableMaps[MapIndex].Map.GetLongPackageName();//.GetAssetPathString();
+
+	/* Get Random GameMode by Map*/
+	const TArray<TSoftClassPtr<AShooterGameMode>> AvaliableGameModes = AvaliableMaps[MapIndex].AvaliableGameModes;
+	int32 GameModeIndex = FMath::RandRange(0, AvaliableGameModes.Num() - 1);
+	FString GameModeName = AvaliableGameModes[GameModeIndex].GetAssetName();
+	GameModeName = AvaliableGameModes[GameModeIndex].GetLongPackageName();
+	GameModeName = AvaliableGameModes[GameModeIndex].ToSoftObjectPath().GetAssetPathString();
+
+	return FString::Printf(TEXT("%s?game=%s?listen"), *MapPath, *GameModeName);
 }
