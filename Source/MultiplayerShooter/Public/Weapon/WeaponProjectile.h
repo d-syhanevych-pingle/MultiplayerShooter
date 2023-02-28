@@ -9,7 +9,7 @@
 /**
  * 
  */
-UCLASS()
+UCLASS(BlueprintType)
 class MULTIPLAYERSHOOTER_API AWeaponProjectile : public AWeapon
 {
 	GENERATED_BODY()

@@ -12,6 +12,7 @@
 #include "Net/UnrealNetwork.h"
 #include "PlayerController/ShooterPlayerController.h"
 #include "Weapon/Projectile.h"
+#include "Net/UnrealNetwork.h"
 
 UCombatComponent::UCombatComponent()
 {
@@ -62,32 +63,52 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
 	if (!MainCharacter || !WeaponToEquip) return;
 
+	// Set weapon and its state.
+	AWeapon* PreviousWeapon = EquippedWeapon;
+	EquippedWeapon = WeaponToEquip;
+	EquippedWeapon_OnRep(PreviousWeapon);
+}
+
+void UCombatComponent::EquippedWeapon_OnRep(AWeapon* PreviousWeapon)
+{
+	if (!MainCharacter || !EquippedWeapon) return;
+
 	// Drop equipped weapon.
-	if (EquippedWeapon) EquippedWeapon->Dropped();
+	if (PreviousWeapon) PreviousWeapon->Dropped();
 
 	// Set weapon and its state.
-	EquippedWeapon = WeaponToEquip;
 	bAutomaticFire = EquippedWeapon->GetCanAutoFire();
 	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 
 	// Automatically propagated to the clients, that's why we don't need to do attachment on the client again.
 	AttachWeaponToRightHand();
-	
+
 	EquippedWeapon->SetOwner(MainCharacter);
 
-	// Show the HUD: weapon type, ammo amount, carried ammo amount.
-	SetHUDWeaponType();
-	EquippedWeapon->SetHUDAmmo();
-	SetCarriedAmmoFromMap(EquippedWeapon->GetWeaponType());	// Set carried ammo and display the HUD.
-	
-	// Play equip sound.
-	if (MainCharacter->IsLocallyControlled())
+	if (GetNetMode() != ENetMode::NM_DedicatedServer)
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, EquippedWeapon->EquippedSound, MainCharacter->GetActorLocation(), FRotator::ZeroRotator);
+		// Show the HUD: weapon type, ammo amount, carried ammo amount.
+		SetHUDWeaponType();
+		EquippedWeapon->SetHUDAmmo();
+		SetCarriedAmmoFromMap(EquippedWeapon->GetWeaponType());	// Set carried ammo and display the HUD.
+		// Play equip sound.
+		if (MainCharacter->IsLocallyControlled())
+		{
+			UGameplayStatics::PlaySoundAtLocation(this, EquippedWeapon->EquippedSound, MainCharacter->GetActorLocation(), FRotator::ZeroRotator);
+		}
 	}
 	
 	MainCharacter->GetCharacterMovement()->bOrientRotationToMovement = false;
 	MainCharacter->bUseControllerRotationYaw = true;
+	EquippedWeapon->OnWeaponTaken.Broadcast();
+	EquippedWeapon->OnWeaponTakenNative.Broadcast();
+}
+
+void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(UCombatComponent, EquippedWeapon);
 }
 
 void UCombatComponent::SetCombatState(const ECombatState State)

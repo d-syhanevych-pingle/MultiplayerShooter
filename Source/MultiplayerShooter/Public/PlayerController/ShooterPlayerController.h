@@ -6,9 +6,8 @@
 #include "GameFramework/PlayerController.h"
 #include "ShooterPlayerController.generated.h"
 
-/**
- * 
- */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPawnPosses, AShooterPlayerController*, ShooterPlayerController);
+
 UCLASS()
 class MULTIPLAYERSHOOTER_API AShooterPlayerController : public APlayerController
 {
@@ -46,6 +45,7 @@ public:
 	/** Once the game mode's MatchState is changed, the player controller's MatchState callback is going to be executed. */
 	void OnMatchStateSet(FName State);
 
+	FOnPawnPosses OnPawnPosses;
 private:
 	UPROPERTY()
 	class AShooterHUD* ShooterHUD;
@@ -58,6 +58,9 @@ private:
 
 	UFUNCTION(Client, Reliable)
 	void ReportServerTimeToClient(float ClientRequestTime, float ServerReportTime);
+
+	UFUNCTION(Server, Reliable)
+	void ServerPawnPosses();
 
 	void CheckTimeSync(float DeltaTime);
 

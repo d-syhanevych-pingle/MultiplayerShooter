@@ -18,7 +18,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "PlayerController/ShooterPlayerController.h"
-#include"Net/UnrealNetwork.h"
+#include "Net/UnrealNetwork.h"
 
 AMainCharacter::AMainCharacter()
 {
@@ -45,6 +45,7 @@ AMainCharacter::AMainCharacter()
 	OverheadWidget->SetupAttachment(RootComponent);
 
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("Combat Component"));
+	Combat->SetIsReplicated(true);
 	Buff = CreateDefaultSubobject<UBuffComponent>(TEXT("Buff Component"));
 
 	TimelineComponent = CreateDefaultSubobject<UTimelineComponent>(TEXT("Timeline Component"));
@@ -406,18 +407,20 @@ void AMainCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AMainCharacter, OverlappingWeapon);
+	DOREPLIFETIME_CONDITION(AMainCharacter, OverlappingWeapon, COND_OwnerOnly);
 }
 
-void AMainCharacter::OnRep_OverlappingWeapon()
+void AMainCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 {
 	if (OverlappingWeapon)
 	{
 		OverlappingWeapon->ShowPickupWidget(true);
 	}
+	if (LastWeapon)
+	{
+		LastWeapon->ShowPickupWidget(false);
+	}
 }
-
-
 
 /**
  * @brief  Player Input
@@ -483,7 +486,30 @@ void AMainCharacter::LookUpAtRate(float Value)
 	AddControllerPitchInput(Value * TurnRate * GetWorld()->GetDeltaSeconds());
 }
 
+void AMainCharacter::EquipWeapon(AWeapon* EquipWeapon)
+{
+	if (!EquipWeapon)
+		return;
+	OverlappingWeapon = EquipWeapon;
+	EquipButtonPressed();
+}
+
 void AMainCharacter::EquipButtonPressed()
+{
+	if (Combat)
+	{
+		if (HasAuthority())
+		{
+			Combat->EquipWeapon(OverlappingWeapon);
+		}
+		else
+		{
+			ServerEquipButtonPressed(); 
+		}
+	}
+}
+
+void AMainCharacter::ServerEquipButtonPressed_Implementation()
 {
 	if (Combat)
 	{

@@ -10,7 +10,7 @@
  * The difference between hit- scan weapon and projectile weapon is that it does't spawn the projectile because its speed is very fast
  * so once we fire, the target is damaged immediately.
  */
-UCLASS()
+UCLASS(BlueprintType)
 class MULTIPLAYERSHOOTER_API AWeaponHitScan : public AWeapon
 {
 	GENERATED_BODY()

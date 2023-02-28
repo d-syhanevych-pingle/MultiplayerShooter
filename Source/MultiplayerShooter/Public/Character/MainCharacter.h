@@ -50,6 +50,7 @@ public:
 	void PlayReloadMontage() const;
 	void PlayThrowGrenadeMontage() const;
 	void Eliminated();
+	void EquipWeapon(AWeapon* EquipWeapon);
 
 	/* Display the sniper scope effect when aiming. */
 	UFUNCTION(BlueprintImplementableEvent)
@@ -72,10 +73,13 @@ private:
 	class AWeapon* OverlappingWeapon;
 
 	UFUNCTION()
-	void OnRep_OverlappingWeapon();
+	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
 
 	UPROPERTY(VisibleAnywhere)
 	class UCombatComponent* Combat;
+
+	UFUNCTION(Server, Reliable)
+	void ServerEquipButtonPressed();
 
 	UPROPERTY(VisibleAnywhere)
 	class AShooterPlayerController* ShooterPlayerController;

@@ -41,6 +41,19 @@ void AShooterPlayerController::OnPossess(APawn* InPawn)
 	{
 		MainCharacter->SetIsRespawned();
 	}
+	if (HasAuthority()) 
+	{
+		OnPawnPosses.Broadcast(this);
+	}
+	else
+	{
+		ServerPawnPosses();
+	}
+}
+
+void AShooterPlayerController::ServerPawnPosses_Implementation()
+{
+	OnPawnPosses.Broadcast(this);
 }
 
 void AShooterPlayerController::ReceivedPlayer()

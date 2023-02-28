@@ -64,6 +64,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void LaunchGrenadeAnimNotify();
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -83,15 +85,15 @@ private:
 	UPROPERTY()
 	class AShooterHUD* ShooterHUD;
 
-	UPROPERTY()
+	UPROPERTY(ReplicatedUsing = EquippedWeapon_OnRep)
 	class AWeapon* EquippedWeapon;
 
+	UFUNCTION()
+	void EquippedWeapon_OnRep(AWeapon* PreviousWeapon);
 
 	/**
 	 *	Aiming properties
 	 */
-
-	
 	UPROPERTY()
 	bool bAiming;
 

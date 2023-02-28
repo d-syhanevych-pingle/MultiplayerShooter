@@ -7,6 +7,9 @@
 #include "GameFramework/Actor.h"
 #include "Weapon.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWeaponTaken);
+DECLARE_MULTICAST_DELEGATE(FOnWeaponTakenNative);
+
 UENUM(BlueprintType)
 enum class EWeaponState : uint8
 {
@@ -17,7 +20,7 @@ enum class EWeaponState : uint8
 	EWS_Max UMETA(DisplayName = "DefaultMax"),
 };
 
-UCLASS()
+UCLASS(BlueprintType)
 class MULTIPLAYERSHOOTER_API AWeapon : public AActor
 {
 	GENERATED_BODY()
@@ -33,6 +36,9 @@ public:
 	void SpendRound();
 	void SetHUDAmmo();
 	void SetAmmo(const int32 Amount);
+
+	FOnWeaponTaken OnWeaponTaken;
+	FOnWeaponTakenNative OnWeaponTakenNative;
 	
 protected:
 	virtual void BeginPlay() override;

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameMode/ShooterGameMode.h"
+#include "SpawnTools/EquipmentSpawner.h"
 #include "UnpredictableBattleGameMode.generated.h"
 
 /**
@@ -13,5 +14,18 @@ UCLASS()
 class MULTIPLAYERSHOOTER_API AUnpredictableBattleGameMode : public AShooterGameMode
 {
 	GENERATED_BODY()
-	
+
+protected:
+	virtual void BeginPlay() override;
+	//virtual APawn* SpawnDefaultPawnAtTransform(AController* NewPlayer, const FTransform& SpawnTransform) override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
+public:
+	UPROPERTY(EditDefaultsOnly, Category = "Match Parameters")
+	TSubclassOf<class AEquipmentSpawner> EquipmentSpawner;
+
+private:
+	AEquipmentSpawner* SpawnerEquipment;
+
+	UFUNCTION()
+	void EquipRandomWeaponForCharacter(AShooterPlayerController* ShooterPlayerController);
 };

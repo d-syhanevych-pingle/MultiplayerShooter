@@ -6,6 +6,9 @@
 #include "GameFramework/Actor.h"
 #include "Pickup.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPickupTaken);
+DECLARE_MULTICAST_DELEGATE(FOnPickupTakenNative);
+
 UCLASS()
 class MULTIPLAYERSHOOTER_API APickup : public AActor
 {
@@ -15,6 +18,9 @@ public:
 	APickup();
 	virtual void Tick(float DeltaTime) override;
 	virtual void Destroyed() override;
+
+	FOnPickupTaken OnPickupTaken;
+	FOnPickupTakenNative OnPickupTakenNative;
 
 protected:
 	virtual void BeginPlay() override;

@@ -35,6 +35,8 @@ APickup::APickup()
 	// Stencil -- Outline effect
 	PickupMesh->SetRenderCustomDepth(true);
 	PickupMesh->SetCustomDepthStencilValue(DEPTH_BLUE);
+
+	bReplicates = true;
 }
 
 void APickup::Tick(float DeltaTime)
@@ -65,6 +67,8 @@ void APickup::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedComponent, AAc
 	if (AMainCharacter* MainCharacter = Cast<AMainCharacter>(OtherActor))
 	{
 		SpawnBuffEffectAttached(MainCharacter);
+		OnPickupTaken.Broadcast();
+		OnPickupTakenNative.Broadcast();
 		Destroy();
 	}
 }

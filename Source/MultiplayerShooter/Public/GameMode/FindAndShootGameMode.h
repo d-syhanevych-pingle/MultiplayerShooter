@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameMode/ShooterGameMode.h"
+#include "SpawnTools/ItemsSpawner.h"
 #include "FindAndShootGameMode.generated.h"
 
 /**
@@ -14,4 +15,13 @@ class MULTIPLAYERSHOOTER_API AFindAndShootGameMode : public AShooterGameMode
 {
 	GENERATED_BODY()
 	
+protected:
+	virtual void BeginPlay() override;
+
+public:
+	UPROPERTY(EditDefaultsOnly, Category = "Match Parameters")
+	TSubclassOf<class AItemsSpawner> ItemsSpawner;
+
+private:
+	AItemsSpawner* SpawnerItems;
 };

@@ -35,21 +35,32 @@ private:
 	float LevelStartingTime = 0.f;
 	
 	/** Warmup time before starting the game */
-	UPROPERTY(EditDefaultsOnly, Category = Match)
+	UPROPERTY(EditDefaultsOnly, Category = "Match Parameters")
 	float WarmupTime = 10.f;
 
 	/** Match time when MatchState is InProgress */
-	UPROPERTY(EditDefaultsOnly, Category = Match)
+	UPROPERTY(EditDefaultsOnly, Category = "Match Parameters")
 	float MatchTime = 10.f;
 
 	/** Cooldown time when MatchState is InProgress and the match countdown has finished */
-	UPROPERTY(EditDefaultsOnly, Category = Match)
+	UPROPERTY(EditDefaultsOnly, Category = "Match Parameters")
 	float CooldownTime = 10.f;
 
 	/** Countdown time since the players have entered the map */
 	float CountdownTime = 10.f;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Match Parameters")
+	int32 MaxCountOfPlayes = 10;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Match Parameters")
+	bool CanJoinWhenMatchIsInProgress = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Match Parameters")
+	int32 CountOfBots = 0; /* not use now */
+
 public:
+
+	FORCEINLINE int32 GetMaxCountOfPlayes() const {	return MaxCountOfPlayes; }
 	FORCEINLINE float GetLevelStartingTime() const { return LevelStartingTime; }
 	FORCEINLINE float GetWarmupTime() const { return WarmupTime; }
 	FORCEINLINE float GetMatchTime() const { return MatchTime; }
