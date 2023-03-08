@@ -8,7 +8,7 @@
 #include "FindAndShootGameMode.generated.h"
 
 /**
- * 
+ * GameMode Description: Players search for weapons and pickups in the level and fight with it
  */
 UCLASS()
 class MULTIPLAYERSHOOTER_API AFindAndShootGameMode : public AShooterGameMode

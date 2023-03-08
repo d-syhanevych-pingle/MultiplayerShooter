@@ -29,6 +29,7 @@ ACasing::ACasing()
 
 	ShellEjectImpulse = 3.f;
 	ShellEjectImpulseRange = FRotator(45.f, 45.f, 45.f);
+
 }
 
 // Called when the game starts or when spawned
@@ -37,16 +38,18 @@ void ACasing::BeginPlay()
 	Super::BeginPlay();
 
 	CasingMesh->OnComponentHit.AddDynamic(this, &ThisClass::OnHit);
-	AddImpulseRandomly(ShellEjectImpulseRange);
 }
 
 void ACasing::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (FallSound)
+	//Sound is needed only on the client
+	if (GetNetMode() != ENetMode::NM_DedicatedServer)
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, FallSound, GetActorLocation());
-		CasingMesh->SetNotifyRigidBodyCollision(false);	// Stop firing the hit event cuz the sound will be played multiple times when the shell is rolling (physics simulation)
+		if (FallSound)
+			UGameplayStatics::PlaySoundAtLocation(this, FallSound, GetActorLocation());
 	}
+	if (FallSound)
+		CasingMesh->SetNotifyRigidBodyCollision(false);	// Stop firing the hit event cuz the sound will be played multiple times when the shell is rolling (physics simulation)
 }
 
 
@@ -57,12 +60,12 @@ void ACasing::Tick(float DeltaTime)
 	
 }
 
-void ACasing::AddImpulseRandomly(const FRotator& ImpulseRotatorRange) const
+void ACasing::AddImpulseRandomly(FRandomStream RandomStream) const
 {
 	FRotator ImpulseRotator;
-	ImpulseRotator.Yaw = UKismetMathLibrary::RandomFloatInRange(-ImpulseRotatorRange.Yaw, ImpulseRotatorRange.Yaw);
-	ImpulseRotator.Pitch = UKismetMathLibrary::RandomFloatInRange(-ImpulseRotatorRange.Pitch, ImpulseRotatorRange.Pitch);
-	ImpulseRotator.Roll = UKismetMathLibrary::RandomFloatInRange(-ImpulseRotatorRange.Roll, ImpulseRotatorRange.Roll);
+	ImpulseRotator.Yaw = RandomStream.FRandRange(-ShellEjectImpulseRange.Yaw, ShellEjectImpulseRange.Yaw);
+	ImpulseRotator.Pitch = RandomStream.FRandRange(-ShellEjectImpulseRange.Pitch, ShellEjectImpulseRange.Pitch);
+	ImpulseRotator.Roll = RandomStream.FRandRange(-ShellEjectImpulseRange.Roll, ShellEjectImpulseRange.Roll);
 
 	CasingMesh->AddImpulse(ImpulseRotator.Vector() * ShellEjectImpulse);
 }

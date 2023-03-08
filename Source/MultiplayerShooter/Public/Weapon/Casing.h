@@ -32,6 +32,8 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	void AddImpulseRandomly(FRandomStream RandomStream) const;
+
 private:
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* CasingMesh;
@@ -45,5 +47,5 @@ private:
 	UPROPERTY(EditAnywhere)
 	FRotator ShellEjectImpulseRange;
 	
-	void AddImpulseRandomly(const FRotator& ImpulseRotatorRange) const;
+
 };

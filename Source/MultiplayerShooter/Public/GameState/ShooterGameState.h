@@ -6,9 +6,11 @@
 #include "GameFramework/GameState.h"
 #include "ShooterGameState.generated.h"
 
-/**
- * 
- */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMatchTick, int32, TickValue);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMatchCooldownTick, int32, TickValue);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMatchWarmupTick, int32, TickValue);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMatchStateChanged, FName, MatchState);
+
 UCLASS()
 class MULTIPLAYERSHOOTER_API AShooterGameState : public AGameState
 {
@@ -17,7 +19,32 @@ class MULTIPLAYERSHOOTER_API AShooterGameState : public AGameState
 public:
 	/** Once a player is eliminated, we then need to update the array: TopScorePlayerStates and update the TopScore player in the HUD */
 	void UpdateTopScorePlayerStates(class AShooterPlayerState* PlayerState);
+	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps);
+	virtual void DefaultTimer();
+	void StartTimer();
 
+	UPROPERTY(ReplicatedUsing=OnRep_WarmupTime, BlueprintReadOnly)
+	int32 WarmupTime;
+
+	UPROPERTY(ReplicatedUsing=OnRep_CooldownTime, BlueprintReadOnly)
+	int32 CooldownTime;
+
+	//UFUNCTION()
+	virtual void OnRep_ElapsedTime(); 
+	
+	UFUNCTION()
+	void OnRep_CooldownTime();
+
+	UFUNCTION()
+	void OnRep_WarmupTime();
+
+	//UFUNCTION()
+	virtual void OnRep_MatchState();
+
+	FOnMatchTick OnMatchTick;
+	FOnMatchCooldownTick OnMatchCooldownTick;
+	FOnMatchWarmupTick OnMatchWarmupTick;
+	FOnMatchStateChanged OnMatchStateChanged;
 
 private:
 	UPROPERTY()
@@ -35,5 +62,6 @@ private:
 
 public:
 	FORCEINLINE float GetTopScore() const { return TopScore; }
-	 FORCEINLINE const TArray<class AShooterPlayerState*>& GetTopScorePlayerStates() const { return TopScorePlayerStates; }
+	FORCEINLINE const TArray<class AShooterPlayerState*>& GetTopScorePlayerStates() const { return TopScorePlayerStates; }
+
 };

@@ -42,12 +42,14 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	FHitResult HitResult;
-	TraceUnderCrosshairs(HitResult);
-	
-	UpdateHUDCrosshairs(DeltaTime);
-	AimZooming(DeltaTime);
-	
+	if (GetNetMode() != ENetMode::NM_DedicatedServer)
+	{
+		FHitResult HitResult;
+		TraceUnderCrosshairs(HitResult);
+
+		UpdateHUDCrosshairs(DeltaTime);
+		AimZooming(DeltaTime);
+	}
 }
 
 void UCombatComponent::UpdateCharacterSpeed()
@@ -67,6 +69,21 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	AWeapon* PreviousWeapon = EquippedWeapon;
 	EquippedWeapon = WeaponToEquip;
 	EquippedWeapon_OnRep(PreviousWeapon);
+	FTimerHandle DelayTimerHandle;
+
+	/*if (!MainCharacter->HasAuthority())
+	{
+		GetWorld()->GetTimerManager().SetTimer(DelayTimerHandle, [this]() {
+			const USkeletalMeshSocket* MuzzleFlashSocket = EquippedWeapon->GetWeaponMesh()->GetSocketByName(FName("MuzzleFlash"));
+			if (MuzzleFlashSocket)
+			{
+				const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(EquippedWeapon->GetWeaponMesh());
+				this->ServerSetEquippedWeaponLocation(EquippedWeapon->GetActorLocation());
+				UE_LOG(LogTemp, Log, TEXT("MuzzleFlashSocket->GetSocketTransform: %d"), SocketTransform.GetTranslation().Z);
+			}
+			}, 10.f, false);
+	}*/
+	
 }
 
 void UCombatComponent::EquippedWeapon_OnRep(AWeapon* PreviousWeapon)
@@ -102,6 +119,15 @@ void UCombatComponent::EquippedWeapon_OnRep(AWeapon* PreviousWeapon)
 	MainCharacter->bUseControllerRotationYaw = true;
 	EquippedWeapon->OnWeaponTaken.Broadcast();
 	EquippedWeapon->OnWeaponTakenNative.Broadcast();
+
+	if (GetNetMode() != ENetMode::NM_DedicatedServer)
+	{
+		// Sniper scope effect when aiming. Be aware of IsLocallyControlled check.
+		if (MainCharacter->IsLocallyControlled() && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_SniperRifle)
+		{
+			MainCharacter->ShowSniperScopeWidget(bAiming);
+		}
+	}
 }
 
 void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -109,11 +135,18 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(UCombatComponent, EquippedWeapon);
+	//DOREPLIFETIME(UCombatComponent, CombatState);
+	DOREPLIFETIME(UCombatComponent, bAiming);
 }
 
-void UCombatComponent::SetCombatState(const ECombatState State)
+void UCombatComponent::SetCombatState(ECombatState State)
 {
 	CombatState = State;
+	OnRep_CombatState();
+}
+
+void UCombatComponent::OnRep_CombatState()
+{
 	HandleCombatState();
 }
 
@@ -143,12 +176,19 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 	if (!MainCharacter || !EquippedWeapon) return;
 	
 	bAiming = bIsAiming;
+	SetAiming_OnRep();
+	
+}
+
+void UCombatComponent::SetAiming_OnRep()
+{
 	UpdateCharacterSpeed();
+	if (!EquippedWeapon) return;
 
 	// Sniper scope effect when aiming. Be aware of IsLocallyControlled check.
 	if (MainCharacter->IsLocallyControlled() && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_SniperRifle)
 	{
-		MainCharacter->ShowSniperScopeWidget(bIsAiming);
+		MainCharacter->ShowSniperScopeWidget(bAiming);
 	}
 }
 
@@ -158,18 +198,76 @@ void UCombatComponent::Fire()
 	// and reload will be executed immediately.
 	if (EquippedWeapon && EquippedWeapon->IsAmmoEmpty())
 	{
-		Reload();
+		ServerReload();
+		if (GetNetMode() != ENetMode::NM_DedicatedServer)
+		{
+			Reload();
+		}
 	}
 	if (CanFire())
-	{
-		if (!MainCharacter || !EquippedWeapon || CombatState != ECombatState::ECS_Unoccupied) return;
-
-		AimFactor += EquippedWeapon->GetRecoilFactor();
-		MainCharacter->PlayFireMontage(bAiming);
-		EquippedWeapon->Fire(HitTarget);
-
-		StartFireTimer();
+	{	
+		ServerFire(bAiming, HitTarget);
+		if (GetNetMode() != ENetMode::NM_DedicatedServer)
+		{
+			Fire(bAiming);
+		}
 	}
+	
+}
+
+void UCombatComponent::ServerReload_Implementation()
+{
+	if (EquippedWeapon && EquippedWeapon->IsAmmoEmpty())
+	{
+		if (!MainCharacter || IsCarriedAmmoEmpty() || CombatState != ECombatState::ECS_Unoccupied ||
+			!EquippedWeapon || EquippedWeapon->IsAmmoFull()) return;
+
+		MulticastReload();
+	}
+}
+
+void UCombatComponent::MulticastReload_Implementation()
+{
+	if (!MainCharacter->IsLocallyControlled())
+		Reload();
+}
+
+void UCombatComponent::Reload()
+{
+	CombatState = ECombatState::ECS_Reloading;
+	MainCharacter->PlayReloadMontage();
+}
+
+void UCombatComponent::ServerFire_Implementation(bool bIsAiming, FVector InHitTarget)
+{
+	HitTarget = InHitTarget;
+	if (CanFire())
+	{
+		if (!MainCharacter || !EquippedWeapon || CombatState != ECombatState::ECS_Unoccupied)
+			return;
+		MulticastFire(bIsAiming);
+	}
+}
+
+// It is used both on the client and on the server, performs the necessary actions for fire
+void UCombatComponent::Fire(bool bIsAiming)
+{
+	if (!MainCharacter || !EquippedWeapon || CombatState != ECombatState::ECS_Unoccupied)
+		return;
+
+	AimFactor += EquippedWeapon->GetRecoilFactor();
+	if (GetNetMode() != ENetMode::NM_DedicatedServer)
+	{
+		MainCharacter->PlayFireMontage(bIsAiming);		
+	}
+	EquippedWeapon->Fire(HitTarget);
+	StartFireTimer();
+}
+
+void UCombatComponent::MulticastFire_Implementation(bool bIsAiming)
+{
+	if (!MainCharacter->IsLocallyControlled())
+		Fire(bIsAiming);
 }
 
 void UCombatComponent::FireButtonPressed(bool bPressed)
@@ -340,21 +438,12 @@ void UCombatComponent::ThrowGrenadeAnimNotify()
 
 void UCombatComponent::LaunchGrenadeAnimNotify()
 {
-	if (MainCharacter && MainCharacter->IsLocallyControlled())
+	if (MainCharacter && MainCharacter->HasAuthority())
 	{
 		LaunchGrenade(HitTarget);
 	}
 	// Hide the grenade mesh on all machine.
 	ShowGrenadeAttached(false);
-}
-
-void UCombatComponent::Reload()
-{
-	if (!MainCharacter || IsCarriedAmmoEmpty() || CombatState != ECombatState::ECS_Unoccupied ||
-		!EquippedWeapon || EquippedWeapon->IsAmmoFull()) return;
-
-	CombatState = ECombatState::ECS_Reloading;
-	MainCharacter->PlayReloadMontage();
 }
 
 void UCombatComponent::ReloadAmmoAmount()
@@ -381,6 +470,13 @@ void UCombatComponent::ReloadAmmoAmount()
 void UCombatComponent::ThrowGrenade()
 {
 	if (!MainCharacter || CombatState != ECombatState::ECS_Unoccupied || IsGrenadeEmpty()) return;
+	ServerThrowGrenade(HitTarget);
+	Client_ThrowGrenade();
+}
+
+void UCombatComponent::Client_ThrowGrenade()
+{
+	if (!MainCharacter || CombatState != ECombatState::ECS_Unoccupied || IsGrenadeEmpty()) return;
 
 	SetCombatState(ECombatState::ECS_Throwing);
 	SetGrenadeAmount(Grenade - 1);
@@ -388,6 +484,18 @@ void UCombatComponent::ThrowGrenade()
 	AttachWeaponToLeftHand();
 
 	MainCharacter->PlayThrowGrenadeMontage();
+}
+
+void UCombatComponent::ServerThrowGrenade_Implementation(FVector InHitTarget)
+{
+	HitTarget = InHitTarget;
+	MulticastThrowGrenade();
+}
+
+void UCombatComponent::MulticastThrowGrenade_Implementation()
+{
+	if (!MainCharacter->IsLocallyControlled())
+		Client_ThrowGrenade();
 }
 
 void UCombatComponent::LaunchGrenade(const FVector_NetQuantize& Target)

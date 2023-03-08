@@ -5,6 +5,7 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "Weapon/Casing.h"
 #include "Weapon/Projectile.h"
+#include "Net/UnrealNetwork.h"
 
 void AWeaponProjectile::Fire(const FVector& TraceHitTarget)
 {
@@ -13,8 +14,45 @@ void AWeaponProjectile::Fire(const FVector& TraceHitTarget)
 	Super::Fire(TraceHitTarget);
 	
 	// Respective game logic (weapon functionality)
-	FireProjectile(TraceHitTarget);
+	if (HasAuthority())
+	{
+		FireProjectile(TraceHitTarget);
+	}
+	
+	//It is performed both on the server and on the client (so as not to load the network)
 	EjectProjectileShell();
+}
+
+void AWeaponProjectile::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (HasAuthority())
+	{
+		RandomStream.GenerateNewSeed();
+		Seed = RandomStream.GetCurrentSeed();
+	}
+	else
+	{
+		RandomStream.Initialize(Seed);
+	}
+}
+
+void AWeaponProjectile::ServerFireProjectile_Implementation(const FVector& TraceHitTarget)
+{
+	FireProjectile(TraceHitTarget);
+}
+
+void AWeaponProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AWeaponProjectile, Seed);
+}
+
+void AWeaponProjectile::Seed_OnRep()
+{
+	RandomStream.Initialize(Seed);
 }
 
 void AWeaponProjectile::FireProjectile(const FVector& TraceHitTarget)
@@ -59,12 +97,15 @@ void AWeaponProjectile::EjectProjectileShell()
 			if (World)
 			{
 				// Spawn a child object (ProjectileClass* ) in the world and return the base object reference (AProjectile* )
-				World->SpawnActor<ACasing>(
+				ACasing* Casing = World->SpawnActor<ACasing>(
 						CasingClass,
 						SocketTransform.GetLocation(),
 						SocketTransform.GetRotation().Rotator(),
 						FActorSpawnParameters()
 						);
+
+				Casing->AddImpulseRandomly(RandomStream);
+				Seed = RandomStream.GetCurrentSeed();
 			}
 		}
 	}

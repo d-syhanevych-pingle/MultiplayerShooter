@@ -20,17 +20,24 @@ void AShooterPlayerController::BeginPlay()
 	Super::BeginPlay();
 
 	ShooterHUD = Cast<AShooterHUD>(GetHUD());
-	
-	CheckMatchState();
+
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		if (AShooterGameState* ShooterGameState = Cast<AShooterGameState>(UGameplayStatics::GetGameState(this)))
+		{
+			ShooterGameState->OnMatchWarmupTick.AddDynamic(this, &AShooterPlayerController::UpdateAnnouncementWarmup);
+			ShooterGameState->OnMatchTick.AddDynamic(this, &AShooterPlayerController::UpdateMatchCountDown);
+			ShooterGameState->OnMatchCooldownTick.AddDynamic(this, &AShooterPlayerController::UpdateAnnouncementCooldown);
+			ServerGetMatchState();
+		}
+	}
 }
 
 void AShooterPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	SetHUDTime();
-
-	CheckTimeSync(DeltaTime);
+	
+	//CheckTimeSync(DeltaTime);
 }
 
 void AShooterPlayerController::OnPossess(APawn* InPawn)
@@ -138,30 +145,32 @@ void AShooterPlayerController::UpdateGrenade(int32 GrenadeAmount)
 	ShooterHUD->GetCharacterOverlay()->GrenadeAmount->SetText(FText::FromString(GrenadeAmountStr));
 }
 
-void AShooterPlayerController::UpdateAnnouncement(int32 Countdown)
+void AShooterPlayerController::UpdateAnnouncementWarmup(int32 CurrentTime)
 {
+	UE_LOG(LogTemp, Display, TEXT("Change warmup to %d"), CurrentTime);
 	ShooterHUD = ShooterHUD ? ShooterHUD : Cast<AShooterHUD>(GetHUD());
-	if (!ShooterHUD || !ShooterHUD->GetAnnouncement() || !ShooterHUD->GetAnnouncement()->Announce_0 ||
-		!ShooterHUD->GetAnnouncement()->Announce_1 || !ShooterHUD->GetAnnouncement()->TimeText) return;
-
-	UAnnouncementWidget* Announcement = ShooterHUD->GetAnnouncement();
-	if (Countdown <= 0)
-	{
-		Announcement->Announce_0->SetText(FText());
-		Announcement->Announce_1->SetText(FText());
-		Announcement->TimeText->SetText(FText());
+	if (!ShooterHUD)
 		return;
-	}
-	const int32 Minute = Countdown / 60.f;
-	const int32 Second = Countdown - 60 * Minute;
-	const FString CountdownString = FString::Printf(TEXT("%02d:%02d"), Minute, Second);
-	Announcement->TimeText->SetText(FText::FromString(CountdownString));
+
+	if (CurrentTime <= WarmupTime && CurrentTime >= 0)
+		ShooterHUD->UpdateAnnouncement(WarmupTime - CurrentTime);
 }
 
-void AShooterPlayerController::UpdateMatchCountDown(int32 Countdown)
+void AShooterPlayerController::UpdateAnnouncementCooldown(int32 CurrentTime)
+{
+	ShooterHUD = ShooterHUD ? ShooterHUD : Cast<AShooterHUD>(GetHUD());
+	if (!ShooterHUD)
+		return;
+
+	if (CurrentTime <= CooldownTime && CurrentTime >= 0)
+		ShooterHUD->UpdateAnnouncement(CooldownTime - CurrentTime);
+}
+
+void AShooterPlayerController::UpdateMatchCountDown(int32 CurrentTime)
 {
 	ShooterHUD = ShooterHUD ? ShooterHUD : Cast<AShooterHUD>(GetHUD());
 	if (!ShooterHUD || !ShooterHUD->GetCharacterOverlay() || !ShooterHUD->GetCharacterOverlay()->MatchCountdown) return;
+	int32 Countdown = MatchTime - CurrentTime;
 
 	UCharacterOverlay* CharacterOverlay = ShooterHUD->GetCharacterOverlay();
 	if (Countdown > 0 && Countdown <= 30)
@@ -223,36 +232,6 @@ void AShooterPlayerController::UpdateTopScore()
 	ShooterHUD->GetCharacterOverlay()->TopScore->SetText(FText::FromString(TopScoreString));
 }
 
-void AShooterPlayerController::SetHUDTime()
-{
-	float TimeLeft = 0.f;
-	if (MatchState == MatchState::WaitingToStart)
-	{
-		TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
-	}
-	else if (MatchState == MatchState::InProgress)
-	{
-		TimeLeft = WarmupTime + MatchTime - GetServerTime() + LevelStartingTime;
-	}
-	else if (MatchState == MatchState::Cooldown)
-	{
-		TimeLeft = WarmupTime + MatchTime + CooldownTime - GetServerTime() + LevelStartingTime;
-	}
-	const int32 SecondsLeft = FMath::CeilToInt32(TimeLeft);
-	if (SecondsLeft != CountdownInt)
-	{
-		if (MatchState == MatchState::WaitingToStart || MatchState == MatchState::Cooldown)
-		{
-			UpdateAnnouncement(SecondsLeft);
-		}
-		else if (MatchState == MatchState::InProgress)
-		{
-			UpdateMatchCountDown(SecondsLeft);
-		}
-	}
-	CountdownInt = SecondsLeft;
-}
-
 void AShooterPlayerController::RefreshHUD()
 {
 	ShooterHUD = ShooterHUD ? ShooterHUD : Cast<AShooterHUD>(GetHUD());
@@ -261,65 +240,14 @@ void AShooterPlayerController::RefreshHUD()
 
 void AShooterPlayerController::OnMatchStateSet(FName State)
 {
+	if (MatchState == State)
+		return;
 	MatchState = State;
-	HandleMatchState();
-}
-
-void AShooterPlayerController::HandleMatchState()
-{
-	ShooterHUD = ShooterHUD ? ShooterHUD : Cast<AShooterHUD>(GetHUD());
-	if (!ShooterHUD) return;
-	
-	if (MatchState == MatchState::InProgress)
+	if (GetNetMode() != NM_DedicatedServer)
 	{
-		if (!ShooterHUD->GetCharacterOverlay()) ShooterHUD->AddCharacterOverlay();
-
-		if (ShooterHUD->GetAnnouncement())
-		{
-			ShooterHUD->GetAnnouncement()->SetVisibility(ESlateVisibility::Hidden);
-		}
-	}
-	else if (MatchState == MatchState::Cooldown)
-	{
-		if (!ShooterHUD->GetCharacterOverlay() || !ShooterHUD->GetAnnouncement() ||
-			!ShooterHUD->GetAnnouncement()->Announce_0 || !ShooterHUD->GetAnnouncement()->Announce_1 ||
-			!ShooterHUD->GetAnnouncement()->WinText) return;
-		
-		ShooterHUD->GetCharacterOverlay()->RemoveFromParent();
-		ShooterHUD->GetAnnouncement()->Announce_0->SetText(FText::FromString("New Match Starts in:"));
-		ShooterHUD->GetAnnouncement()->Announce_1->SetText(FText::FromString(""));
-		ShooterHUD->GetAnnouncement()->SetVisibility(ESlateVisibility::Visible);
-
-		// When the match ends, we show the winner announcement.
-		const AShooterGameState* ShooterGameState = Cast<AShooterGameState>(UGameplayStatics::GetGameState(this));
-		const AShooterPlayerState* ShooterPlayerState = GetPlayerState<AShooterPlayerState>();
-		if (!ShooterGameState || !ShooterPlayerState) return;
-
-		FString WinString;
-		auto PlayerStates = ShooterGameState->GetTopScorePlayerStates();
-		if (PlayerStates.Num() == 0)
-		{
-			WinString = "There is no winner.";
-		}
-		else if (PlayerStates.Num() == 1 && PlayerStates[0] == ShooterPlayerState)
-		{
-			WinString = "You are the winner!";
-		}
-		else if (PlayerStates.Num() == 1)
-		{
-			WinString = "Winner:\n";
-			WinString.Append(FString::Printf(TEXT("%s\n"), *PlayerStates[0]->GetPlayerName()));
-		}
-		else if (PlayerStates.Num() > 1)
-		{
-			WinString = "Players tied for the win:\n";
-			for (const auto& State: PlayerStates)
-			{
-				WinString.Append(FString::Printf(TEXT("%s\n"), *State->GetPlayerName()));
-			}
-		}
-		ShooterHUD->GetAnnouncement()->WinText->SetText(FText::FromString(WinString));
-		ShooterHUD->GetAnnouncement()->WinText->SetVisibility(ESlateVisibility::Visible);
+		ShooterHUD = ShooterHUD ? ShooterHUD : Cast<AShooterHUD>(GetHUD());
+		if (ShooterHUD)
+			ShooterHUD->HandleMatchState(MatchState);
 	}
 }
 
@@ -346,24 +274,25 @@ void AShooterPlayerController::CheckTimeSync(float DeltaTime)
 	}
 }
 
-void AShooterPlayerController::CheckMatchState()
+void AShooterPlayerController::ServerGetMatchState_Implementation()
 {
 	const AShooterGameMode* ShooterGameMode = Cast<AShooterGameMode>(GetWorld()->GetAuthGameMode());
 	if (!ShooterGameMode) return;
-	
-	JoinMidGame(ShooterGameMode->GetLevelStartingTime(), ShooterGameMode->GetWarmupTime(), ShooterGameMode->GetMatchTime(),
+
+	ClientJoinMidGame(ShooterGameMode->GetWarmupTime(), ShooterGameMode->GetMatchTime(),
 		ShooterGameMode->GetCooldownTime(), ShooterGameMode->GetMatchState());
 }
 
-void AShooterPlayerController::JoinMidGame(float LevelStarting, float Warmup, float Match, float Cooldown, FName State)
+void AShooterPlayerController::ClientJoinMidGame_Implementation(float Warmup, float Match, float Cooldown, FName State)
 {
-	LevelStartingTime = LevelStarting;
 	WarmupTime = Warmup;
 	MatchTime = Match;
 	CooldownTime = Cooldown;
-	MatchState = State;
-	
+
 	// If the player is joining mid-game and the game is now in progress, the UI should switch to the MatchState's UI, so the
 	// player should be notified which game state is now going on.
-	OnMatchStateSet(MatchState);
+	OnMatchStateSet(State);
+
+	if (AShooterGameState* ShooterGameState = Cast<AShooterGameState>(UGameplayStatics::GetGameState(this)))
+		ShooterGameState->OnMatchStateChanged.AddDynamic(this, &AShooterPlayerController::OnMatchStateSet);
 }

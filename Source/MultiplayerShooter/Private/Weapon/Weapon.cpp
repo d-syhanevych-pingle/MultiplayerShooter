@@ -51,9 +51,12 @@ void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
 
-	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &ThisClass::OnSphereBeginOverlap);
-	AreaSphere->OnComponentEndOverlap.AddDynamic(this, &ThisClass::OnSphereEndOverlap);
+	if (HasAuthority())
+	{
+		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &ThisClass::OnSphereBeginOverlap);
+		AreaSphere->OnComponentEndOverlap.AddDynamic(this, &ThisClass::OnSphereEndOverlap);
+	}
 }
 
 void AWeapon::Tick(float DeltaTime)
@@ -72,11 +75,15 @@ void AWeapon::ShowPickupWidget(bool bShowWidget)
 
 void AWeapon::Fire(const FVector& TraceHitTarget)
 {
-	// This is common logic, feature can be added by override.
-	if (FireAnimation && WeaponMesh)
+	if (GetNetMode() != ENetMode::NM_DedicatedServer)
 	{
-		WeaponMesh->PlayAnimation(FireAnimation, false);
+		// This is common logic, feature can be added by override.
+		if (FireAnimation && WeaponMesh)
+		{
+			WeaponMesh->PlayAnimation(FireAnimation, false);
+		}
 	}
+	
 	SpendRound();
 }
 

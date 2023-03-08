@@ -81,6 +81,12 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
 
+	UFUNCTION(Server, Reliable)
+	void ServerAimButtonAction(bool bIsAiming);
+
+	UFUNCTION(Server, Reliable)
+	void ServerSetCombatState(ECombatState State);
+
 	UPROPERTY(VisibleAnywhere)
 	class AShooterPlayerController* ShooterPlayerController;
 
@@ -132,8 +138,11 @@ private:
 	UPROPERTY(EditAnywhere, Category = PlayerStats)
 	float MaxHealth = 100.f;
 	
-	UPROPERTY(VisibleAnywhere, Category = PlayerStats)
+	UPROPERTY(VisibleAnywhere, Category = PlayerStats, ReplicatedUsing=HandleHealth_OnRep)
 	float Health = 100.f;
+
+	UFUNCTION()
+	void HandleHealth_OnRep(const float HealthValue);
 
 	UPROPERTY(VisibleAnywhere, Category = PlayerStats)
 	bool IsRespawned = false;
@@ -220,7 +229,6 @@ public:
 	FORCEINLINE float GetHealth() const { return Health; }
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
 	void SetHealth(const float HealthValue);
-	void HandleHealth(const bool IsHealthUp);
 	FORCEINLINE void SetMaxHealth(const float MaxHealthValue) { MaxHealth = MaxHealthValue; }
 	void SetIsRespawned();
 	void HandleIsRespawned();

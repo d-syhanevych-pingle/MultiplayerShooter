@@ -14,12 +14,13 @@ class MULTIPLAYERSHOOTER_API AProjectile : public AActor
 public:	
 	AProjectile();
 	virtual void Tick(float DeltaTime) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 protected:
 	virtual void BeginPlay() override;
 
 	/* Projectile Movement Component */
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Replicated)
 	class UProjectileMovementComponent* ProjectileMovementComponent;
 
 	/** Instead of using particle system -- 'Tracer' in the parent class, we use Niagara system here to combine two emitters together

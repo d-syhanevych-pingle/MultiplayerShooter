@@ -75,7 +75,10 @@ void AMainCharacter::BeginPlay()
 	
 	LastAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 	GrenadeAttached->SetVisibility(false);
-	OnTakeAnyDamage.AddDynamic(this, &ThisClass::ReceiveDamage);
+	if (HasAuthority())
+	{
+  		OnTakeAnyDamage.AddDynamic(this, &ThisClass::ReceiveDamage);
+	}
 }
 
 void AMainCharacter::Tick(float DeltaTime)
@@ -273,8 +276,10 @@ void AMainCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDa
 
 void AMainCharacter::SetHUDHealth()
 {
-	ShooterPlayerController = ShooterPlayerController ? ShooterPlayerController : Cast<AShooterPlayerController>(Controller);
-	if (!ShooterPlayerController) return;
+	ShooterPlayerController = ShooterPlayerController ? ShooterPlayerController : Cast<AShooterPlayerController>(GetController());
+
+	if (!ShooterPlayerController) 
+		return;
 
 	ShooterPlayerController->UpdatePlayerHealth(Health, MaxHealth);
 }
@@ -363,11 +368,14 @@ void AMainCharacter::PlayReloadMontage() const
 
 void AMainCharacter::PlayThrowGrenadeMontage() const
 {
+	UE_LOG(LogTemp, Display, TEXT("PlayThrowGrenadeMontage "));
 	if (!GetMesh()) return;
 	
+	UE_LOG(LogTemp, Display, TEXT("GetMesh() true"));
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && ThrowGrenadeMontage)
 	{
+		UE_LOG(LogTemp, Display, TEXT("AnimInstance && ThrowGrenadeMontage true"));
 		AnimInstance->Montage_Play(ThrowGrenadeMontage);
 	}
 }
@@ -407,18 +415,22 @@ void AMainCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(AMainCharacter, OverlappingWeapon, COND_OwnerOnly);
+	DOREPLIFETIME(AMainCharacter, OverlappingWeapon);
+	DOREPLIFETIME(AMainCharacter, Health);
 }
 
 void AMainCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 {
-	if (OverlappingWeapon)
+	if (IsLocallyControlled())
 	{
-		OverlappingWeapon->ShowPickupWidget(true);
-	}
-	if (LastWeapon)
-	{
-		LastWeapon->ShowPickupWidget(false);
+		if (OverlappingWeapon)
+		{
+			OverlappingWeapon->ShowPickupWidget(true);
+		}
+		if (LastWeapon)
+		{
+			LastWeapon->ShowPickupWidget(false);
+		}
 	}
 }
 
@@ -535,7 +547,22 @@ void AMainCharacter::AimButtonPressed()
 {
 	if (Combat)
 	{
-		Combat->SetAiming(true);
+		if (HasAuthority())
+		{
+			Combat->SetAiming(true);
+		}
+		else
+		{
+			ServerAimButtonAction(true);
+		}
+	}
+}
+
+void AMainCharacter::ServerAimButtonAction_Implementation(bool bIsAiming)
+{
+	if (Combat)
+	{
+		Combat->SetAiming(bIsAiming);
 	}
 }
 
@@ -543,7 +570,14 @@ void AMainCharacter::AimButtonReleased()
 {
 	if (Combat)
 	{
-		Combat->SetAiming(false);
+		if (HasAuthority())
+		{
+			Combat->SetAiming(false);
+		}
+		else
+		{
+			ServerAimButtonAction(false);
+		}
 	}
 }
 
@@ -603,26 +637,9 @@ void AMainCharacter::PostInitializeComponents()
 
 void AMainCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 {
-	// When the overlap ends, we should hide the PickupWidget's text. To make that, we need firstly 'ShowPickupWidget(false)' before we assign the
-	// Weapon (Weapon == nullptr when overlap ends) to the OverlappingWeapon. Otherwise, we have no chance to change the PickupWidget's text.
-	if (IsLocallyControlled())
-	{
-		if (OverlappingWeapon)
-		{
-			OverlappingWeapon->ShowPickupWidget(false);
-		}
-	}
-	
+	AWeapon* PreviousWeapon = OverlappingWeapon;
 	OverlappingWeapon = Weapon;
-	
-	// Overlap begins, show the PickupWidget's text.
-	if (IsLocallyControlled())
-	{
-		if (OverlappingWeapon)
-		{
-			OverlappingWeapon->ShowPickupWidget(true);
-		}
-	}
+	OnRep_OverlappingWeapon(PreviousWeapon);
 }
 
 void AMainCharacter::PlayFireMontage(bool bAiming) const
@@ -655,19 +672,20 @@ bool AMainCharacter::IsFireButtonPressed() const
 
 void AMainCharacter::SetHealth(const float HealthValue)
 {
+	if (!HasAuthority())
+		return;
 	if (HealthValue < 0.f || HealthValue > MaxHealth) return;
 	
-	const bool IsHealthIncreased = Health < HealthValue;
 	Health = HealthValue;
-	HandleHealth(IsHealthIncreased);
+	HandleHealth_OnRep(HealthValue);
 }
 
-void AMainCharacter::HandleHealth(const bool IsHealthUp)
+void AMainCharacter::HandleHealth_OnRep(const float HealthValue)
 {
-	SetHUDHealth();
+	if (GetNetMode() != ENetMode::NM_DedicatedServer)
+		SetHUDHealth();
 
-	if (IsHealthUp) {}
-	else
+	if (Health < HealthValue) 
 	{
 		PlayHitReactMontage();
 	}
@@ -698,6 +716,18 @@ void AMainCharacter::SetCombatState(ECombatState State)
 {
 	if (Combat)
 	{
-		Combat->SetCombatState(State);
+		if (HasAuthority())
+		{
+			Combat->SetCombatState(State);
+		}
+		else
+		{
+			ServerSetCombatState(State);
+		}
 	}
+}
+
+void AMainCharacter::ServerSetCombatState_Implementation(ECombatState State)
+{
+	Combat->SetCombatState(State);
 }

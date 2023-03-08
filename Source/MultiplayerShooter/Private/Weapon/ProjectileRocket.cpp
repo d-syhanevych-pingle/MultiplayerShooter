@@ -17,6 +17,7 @@ AProjectileRocket::AProjectileRocket()
 
 	// Destroyed and explode when it hits something.
 	bOnHitDestroy = true;	
+	bReplicates = true;
 }
 
 void AProjectileRocket::BeginPlay()
@@ -29,22 +30,26 @@ void AProjectileRocket::BeginPlay()
 
 void AProjectileRocket::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	// The Owner/Instigator is set in SpawnParams when we spawn the projectile.
-	const APawn* ProjectileInstigator = GetInstigator();
-	if (!ProjectileInstigator) return;
-
-	// If we hit ourselves, it'll not trigger the HitImpact.
-	if (OtherActor == GetOwner()) return;
-
-	// ApplyDamage logic
-	UGameplayStatics::ApplyRadialDamageWithFalloff(this, Damage, MinDamage, GetActorLocation(), DamageInnerRadius, DamageOuterRadius, DamageFalloff,
-	UDamageType::StaticClass(), TArray<AActor*>(), this, ProjectileInstigator->GetController());
-
-	// We use the niagara system instead of particle system in the parent, so we need to override part of the functionality.
-	// We should deactivate to stop keeping generating the particle effect.
-	if (TrailSystemComponent && TrailSystemComponent->GetSystemInstanceController())
+	//Damage event will be caught only on the server
+	if (HasAuthority())
 	{
-		TrailSystemComponent->GetSystemInstanceController()->Deactivate();
+		// The Owner/Instigator is set in SpawnParams when we spawn the projectile.
+		const APawn* ProjectileInstigator = GetInstigator();
+		if (!ProjectileInstigator) return;
+
+		// If we hit ourselves, it'll not trigger the HitImpact.
+		if (OtherActor == GetOwner()) return;
+
+		// ApplyDamage logic
+		UGameplayStatics::ApplyRadialDamageWithFalloff(this, Damage, MinDamage, GetActorLocation(), DamageInnerRadius, DamageOuterRadius, DamageFalloff,
+			UDamageType::StaticClass(), TArray<AActor*>(), this, ProjectileInstigator->GetController());
+
+		// We use the niagara system instead of particle system in the parent, so we need to override part of the functionality.
+		// We should deactivate to stop keeping generating the particle effect.
+		if (TrailSystemComponent && TrailSystemComponent->GetSystemInstanceController())
+		{
+			TrailSystemComponent->GetSystemInstanceController()->Deactivate();
+		}
 	}
 	
 	// Super::OnHit be called, but destroy need to be manually called after the timer finished.

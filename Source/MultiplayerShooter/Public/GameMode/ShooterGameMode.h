@@ -24,16 +24,17 @@ public:
 	AShooterGameMode();
 	virtual void PlayerEliminated(class AMainCharacter* EliminatedCharacter, class AShooterPlayerController* VictimController, class AShooterPlayerController* AttackerController);
 	virtual void RequestRespawn(class AMainCharacter* EliminatedCharacter, class AController* EliminatedController);
+	virtual void InitGameState();
 
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void OnMatchStateSet() override;
+
+	FTimerManager* TimerManager;
+	FTimerHandle TimerHandle_ChangeMatchState;
 	
-private:
-	/** The time cost for entering the map */
-	float LevelStartingTime = 0.f;
-	
+private:	
 	/** Warmup time before starting the game */
 	UPROPERTY(EditDefaultsOnly, Category = "Match Parameters")
 	float WarmupTime = 10.f;
@@ -58,10 +59,13 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Match Parameters")
 	int32 CountOfBots = 0; /* not use now */
 
+	void FinishCurrentMatch();
+	void RestarthCurrentGame();
+	void StartCurrentMatch();
+
 public:
 
 	FORCEINLINE int32 GetMaxCountOfPlayes() const {	return MaxCountOfPlayes; }
-	FORCEINLINE float GetLevelStartingTime() const { return LevelStartingTime; }
 	FORCEINLINE float GetWarmupTime() const { return WarmupTime; }
 	FORCEINLINE float GetMatchTime() const { return MatchTime; }
 	FORCEINLINE float GetCooldownTime() const { return CooldownTime; }

@@ -16,6 +16,7 @@ class MULTIPLAYERSHOOTER_API AProjectileBullet : public AProjectile
 
 public:
 	AProjectileBullet();
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 protected:
 	/** Apply Damage when on hit */
@@ -23,6 +24,9 @@ protected:
 
 private:
 	/** We customize the ProjectileMovementComponent to override the UProjectileMovementComponent engine provides. */
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, ReplicatedUsing=ShooterMovementComponent_OnRep)
 	class UShooterMovementComponent* ShooterMovementComponent;
+
+	UFUNCTION()
+	void ShooterMovementComponent_OnRep();
 };

@@ -32,7 +32,7 @@ public:
 	void EquipWeapon(class AWeapon* WeaponToEquip);
 	FORCEINLINE AWeapon* GetEquippedWeapon() const { return EquippedWeapon; }
 	FORCEINLINE ECombatState GetCombatState() const { return CombatState; }
-	void SetCombatState(const ECombatState State);
+	void SetCombatState(ECombatState State);
 	FORCEINLINE bool IsCarriedAmmoEmpty() const { return CarriedAmmo <= 0; }
 	FORCEINLINE int32 GetCarriedAmmo() const { return CarriedAmmo; }
 	void SetCarriedAmmo(int32 Amount);
@@ -48,6 +48,10 @@ public:
 	/* Reload Animation Notify, we call it directly in AnimNotifyReload.cpp */
 	void ReloadAnimNotify();
 	void Reload();
+	UFUNCTION(Server, Reliable)
+	void ServerReload();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastReload();
 
 	/* Reload the shotgun AnimNotify. */
 	UFUNCTION(BlueprintCallable)
@@ -63,6 +67,9 @@ public:
 	/* Launch the grenade AnimNotify. */
 	UFUNCTION(BlueprintCallable)
 	void LaunchGrenadeAnimNotify();
+
+	UFUNCTION()
+	void OnRep_CombatState();
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -94,8 +101,11 @@ private:
 	/**
 	 *	Aiming properties
 	 */
-	UPROPERTY()
+	UPROPERTY(ReplicatedUsing=SetAiming_OnRep)
 	bool bAiming;
+
+	UFUNCTION()
+	void SetAiming_OnRep();
 
 	UPROPERTY(EditAnywhere, Category = Movement)
 	float BaseWalkSpeed = 600.f;
@@ -115,7 +125,7 @@ private:
 	 */
 
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true")/*, ReplicatedUsing=OnRep_CombatState*/)
 	ECombatState CombatState;
 
 	void HandleCombatState();
@@ -127,6 +137,12 @@ private:
 
 	
 	void Fire();
+	UFUNCTION(Server, Reliable)
+	void ServerFire(bool bIsAiming, FVector InHitTarget);
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastFire(bool bIsAiming);
+	void Fire(bool bIsAiming);
+
 	void FireButtonPressed(bool bPressed);
 	bool CanFire() const;
 	void StartFireTimer();
@@ -210,7 +226,12 @@ private:
 
 	
 	void ThrowGrenade();
-	
+	void Client_ThrowGrenade();
+	UFUNCTION(Server, Reliable)
+	void ServerThrowGrenade(FVector InHitTarget);
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastThrowGrenade();
+
 	/* Attach the weapon to hand when throwing the grenade */
 	void AttachWeaponToLeftHand();
 	void AttachWeaponToRightHand();

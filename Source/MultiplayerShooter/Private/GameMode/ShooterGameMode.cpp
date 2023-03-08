@@ -5,8 +5,8 @@
 #include "Character/MainCharacter.h"
 #include "GameFramework/PlayerStart.h"
 #include "GameFramework/PlayerState.h"
-#include "GameState/ShooterGameState.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameState/ShooterGameState.h"
 #include "PlayerController/ShooterPlayerController.h"
 #include "PlayerState/ShooterPlayerState.h"
 
@@ -23,29 +23,42 @@ AShooterGameMode::AShooterGameMode()
 void AShooterGameMode::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	LevelStartingTime = GetWorld()->GetTimeSeconds();
+
+	TimerManager = &GetWorldTimerManager();
+	TimerManager->SetTimer(TimerHandle_ChangeMatchState, this, &AShooterGameMode::StartCurrentMatch, WarmupTime, true);
 }
 
 void AShooterGameMode::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	if (MatchState == MatchState::WaitingToStart)
-	{
-		CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-		if (CountdownTime <= 0.f) StartMatch();
-	}
-	else if (MatchState == MatchState::InProgress)
-	{
-		CountdownTime = WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-		if (CountdownTime <= 0.f) SetMatchState(MatchState::Cooldown);
-	}
-	else if (MatchState == MatchState::Cooldown)
-	{
-		CountdownTime = WarmupTime + MatchTime + CooldownTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-		if (CountdownTime <= 0.f) RestartGame();
-	}
+}
+
+void AShooterGameMode::InitGameState()
+{
+	Super::InitGameState();
+
+	AShooterGameState* ShooterGameState = GetGameState<AShooterGameState>();
+	if (!ShooterGameState) return;
+
+}
+
+void AShooterGameMode::FinishCurrentMatch()
+{
+	SetMatchState(MatchState::Cooldown);
+	TimerManager->SetTimer(TimerHandle_ChangeMatchState, this, &AShooterGameMode::RestarthCurrentGame, CooldownTime, true);
+}
+
+void AShooterGameMode::RestarthCurrentGame()
+{
+	RestartGame();
+	TimerManager->SetTimer(TimerHandle_ChangeMatchState, this, &AShooterGameMode::StartCurrentMatch, WarmupTime, true);
+}
+
+void AShooterGameMode::StartCurrentMatch()
+{
+	StartMatch();
+	TimerManager->SetTimer(TimerHandle_ChangeMatchState, this, &AShooterGameMode::FinishCurrentMatch, MatchTime, true);
 }
 
 void AShooterGameMode::OnMatchStateSet()

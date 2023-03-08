@@ -48,38 +48,45 @@ void AProjectileGrenade::Destroyed()
 
 void AProjectileGrenade::OnBounce(const FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
-	if (BounceSound)
+	if (GetNetMode() != ENetMode::NM_DedicatedServer)
 	{
-		UGameplayStatics::PlaySoundAtLocation(
-		this,
-		BounceSound,
-		GetActorLocation(),
-		GetActorRotation(),
-		BounceSound->GetVolumeMultiplier(),
-		BounceSound->GetPitchMultiplier(),
-		0.f,
-		BounceSound->AttenuationSettings
-		);
+		if (BounceSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(
+				this,
+				BounceSound,
+				GetActorLocation(),
+				GetActorRotation(),
+				BounceSound->GetVolumeMultiplier(),
+				BounceSound->GetPitchMultiplier(),
+				0.f,
+				BounceSound->AttenuationSettings
+			);
+		}
 	}
 }
 
 void AProjectileGrenade::ExplodeDamage()
 {
-	// ApplyDamage logic
-	if (const APawn* ProjectileInstigator = GetInstigator())
+	//Damage event will be caught only on the server
+	if (HasAuthority())
 	{
-		UGameplayStatics::ApplyRadialDamageWithFalloff(
-			this,
-			Damage,
-			MinDamage,
-			GetActorLocation(),
-			DamageInnerRadius,
-			DamageOuterRadius,
-			DamageFalloff,
-			UDamageType::StaticClass(),
-			TArray<AActor*>(),
-			this,
-			ProjectileInstigator->Controller
-		);
-	}
+		// ApplyDamage logic
+		if (const APawn* ProjectileInstigator = GetInstigator())
+		{
+			UGameplayStatics::ApplyRadialDamageWithFalloff(
+				this,
+				Damage,
+				MinDamage,
+				GetActorLocation(),
+				DamageInnerRadius,
+				DamageOuterRadius,
+				DamageFalloff,
+				UDamageType::StaticClass(),
+				TArray<AActor*>(),
+				this,
+				ProjectileInstigator->Controller
+			);
+		}
+	 }
 }

@@ -16,8 +16,19 @@ class MULTIPLAYERSHOOTER_API AWeaponProjectile : public AWeapon
 
 public:
 	virtual void Fire(const FVector& TraceHitTarget) override;
-	
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void BeginPlay();
 private:
 	void FireProjectile(const FVector& TraceHitTarget);
+	UFUNCTION(Server, Reliable)
+	void ServerFireProjectile(const FVector& TraceHitTarget);
 	void EjectProjectileShell();
+
+	FRandomStream RandomStream;
+
+	UPROPERTY(ReplicatedUsing=Seed_OnRep)
+	int32 Seed;
+
+	UFUNCTION()
+	void Seed_OnRep();
 };

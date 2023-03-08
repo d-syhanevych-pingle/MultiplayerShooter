@@ -8,7 +8,7 @@
 #include "UnpredictableBattleGameMode.generated.h"
 
 /**
- * 
+ *  GameMode Description: Players spawn with a random weapon in hand and an infinite amount of ammo. Weapon changes after death.
  */
 UCLASS()
 class MULTIPLAYERSHOOTER_API AUnpredictableBattleGameMode : public AShooterGameMode

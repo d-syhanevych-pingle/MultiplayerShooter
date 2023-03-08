@@ -1,11 +1,17 @@
 MultiplayerShooter
 (Unreal Engine v5.1.1)
 -----------------------
-27.02.2023
+08.03.2023
+v0.15 -	Animation of Equipped, Crouch and Aiming added;
+		Fire and damage replications for all ammo types implemented;
+		Timers replication added.
+		
+28.02.2023
 v0.14 -	Weapon Pickup Replication implemented;
 		Added additional parameters for gamemods;
-		Random spawn of weapons and pickups in FindAndShoot GameMode on maps implemented.
+		Random spawn of weapons and pickups in FindAndShoot GameMode on maps implemented;
 		Random spawn of weapons for each character in UnpredictableBattle GameMode implemented.
+		
 22.02.2023
 v0.13 -	TowerMap; LabirynthMap added;
 		Server Travel to random map with random gamemode implemented;

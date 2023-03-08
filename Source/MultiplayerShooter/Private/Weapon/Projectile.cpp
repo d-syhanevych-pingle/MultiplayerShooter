@@ -25,6 +25,8 @@ AProjectile::AProjectile()
 	ProjectileMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Projectile Mesh"));
 	ProjectileMesh->SetupAttachment(RootComponent);
 	ProjectileMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	
+	bReplicates = true;
 }
 
 void AProjectile::BeginPlay()
@@ -64,6 +66,13 @@ void AProjectile::BeginPlay()
 
 	// This implementation works fine here, but Stephen said sometimes it fails.
 	// CollisionBox->IgnoreActorWhenMoving(GetOwner(), true);
+}
+
+void AProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AProjectile, ProjectileMovementComponent);
 }
 
 void AProjectile::Tick(float DeltaTime)
@@ -121,8 +130,11 @@ void AProjectile::Destroyed()
 
 void AProjectile::HandleHitImpact()
 {
-	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitEffect, GetActorLocation());
-	UGameplayStatics::PlaySoundAtLocation(GetWorld(), HitSound, GetActorLocation());
+	if (GetNetMode() != ENetMode::NM_DedicatedServer)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitEffect, GetActorLocation());
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), HitSound, GetActorLocation());
+	}
 	
 	// Since we manually call the destroy() after timer finished, so we need to hide the mesh and disable the collision first.
 	if (ProjectileMesh) ProjectileMesh->SetVisibility(false);

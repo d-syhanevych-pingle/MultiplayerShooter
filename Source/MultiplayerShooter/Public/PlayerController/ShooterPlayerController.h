@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "GameMode/ShooterGameMode.h"
+#include "GameState/ShooterGameState.h"
 #include "ShooterPlayerController.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPawnPosses, AShooterPlayerController*, ShooterPlayerController);
@@ -17,9 +19,8 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void OnPossess(APawn* InPawn) override;
-	
 	virtual void ReceivedPlayer() override;		
-	
+
 public:
 	void UpdatePlayerHealth(float Health, float MaxHealth);
 	void UpdatePlayerScore(float Value);
@@ -30,23 +31,35 @@ public:
 	void UpdateCarriedAmmo(int32 AmmoAmount);
 	void UpdateWeaponType(const FString& WeaponType);
 	void UpdateGrenade(int32 GrenadeAmount);
+
 	/** Update the warmup time before matching or update the cooldown time after the match has finished */
-	void UpdateAnnouncement(int32 Countdown);
+	UFUNCTION()
+	void UpdateAnnouncementWarmup(int32 CurrentTime);
+
+	UFUNCTION()
+	void UpdateAnnouncementCooldown(int32 CurrentTime);
+
 	/** Update the match time after matching */
-	void UpdateMatchCountDown(int32 Countdown);
+	UFUNCTION()
+	void UpdateMatchCountDown(int32 CurrentTime);
+
 	/** Update the top score player */
 	void UpdateTopScorePlayer();
 	/** Update the top score */
 	void UpdateTopScore();
-	/** Set the warmup time, match time, ...etc each frame */
-	void SetHUDTime();
 	void RefreshHUD();
 
+	float GetWarmupTime() const { return WarmupTime; }
+	float GetMatchTime() const { return MatchTime; }
+	float GetCooldownTime() const { return CooldownTime; }
+
 	/** Once the game mode's MatchState is changed, the player controller's MatchState callback is going to be executed. */
+	UFUNCTION()
 	void OnMatchStateSet(FName State);
 
 	FOnPawnPosses OnPawnPosses;
 private:
+
 	UPROPERTY()
 	class AShooterHUD* ShooterHUD;
 
@@ -72,16 +85,16 @@ private:
 	float SyncDiffTime = 0.f;
 	float SyncRunningTime = 0.f;
 
-	/** Level starting time, MatchState on GameMode is EnteringMap */
-	float LevelStartingTime = 0.f;
-
 	/** Warmup time, MatchState on GameMode is WaitingToStart */
+	UPROPERTY()
 	float WarmupTime = 0.f;
 	
 	/** Match time, MatchState on GameMode is InProgress */
+	UPROPERTY()
 	float MatchTime = 0.f;
 
 	/** Cooldown time when MatchState is InProgress and the match countdown has finished */
+	UPROPERTY()
 	float CooldownTime = 0.f;
 
 	/** Help to distinguish 2 time seconds in the unit of integer when ticking */
@@ -91,11 +104,9 @@ private:
 	UPROPERTY()
 	FName MatchState;
 
-	void HandleMatchState();
+	UFUNCTION(Client, Reliable)
+	void ClientJoinMidGame(float Warmup, float Match, float Cooldown, FName State);
 
-	UFUNCTION()
-	void CheckMatchState();
-
-	UFUNCTION()
-	void JoinMidGame(float LevelStarting, float Warmup, float Match, float Cooldown, FName State);
+	UFUNCTION(Server, Reliable)
+	void ServerGetMatchState();
 };
