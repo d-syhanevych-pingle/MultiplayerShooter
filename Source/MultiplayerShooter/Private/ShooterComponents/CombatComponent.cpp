@@ -19,7 +19,7 @@ UCombatComponent::UCombatComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 
 	// Initialize the CarriedAmmoMap.
-	InitCarriedAmmoMap();
+	InitCarriedAmmoMap();		
 }
 
 void UCombatComponent::BeginPlay()
@@ -71,25 +71,13 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	EquippedWeapon_OnRep(PreviousWeapon);
 	FTimerHandle DelayTimerHandle;
 
-	/*if (!MainCharacter->HasAuthority())
-	{
-		GetWorld()->GetTimerManager().SetTimer(DelayTimerHandle, [this]() {
-			const USkeletalMeshSocket* MuzzleFlashSocket = EquippedWeapon->GetWeaponMesh()->GetSocketByName(FName("MuzzleFlash"));
-			if (MuzzleFlashSocket)
-			{
-				const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(EquippedWeapon->GetWeaponMesh());
-				this->ServerSetEquippedWeaponLocation(EquippedWeapon->GetActorLocation());
-				UE_LOG(LogTemp, Log, TEXT("MuzzleFlashSocket->GetSocketTransform: %d"), SocketTransform.GetTranslation().Z);
-			}
-			}, 10.f, false);
-	}*/
-	
 }
 
 void UCombatComponent::EquippedWeapon_OnRep(AWeapon* PreviousWeapon)
 {
 	if (!MainCharacter || !EquippedWeapon) return;
 
+	EquippedWeapon->SetLifeSpan(0);
 	// Drop equipped weapon.
 	if (PreviousWeapon) PreviousWeapon->Dropped();
 
@@ -102,18 +90,16 @@ void UCombatComponent::EquippedWeapon_OnRep(AWeapon* PreviousWeapon)
 
 	EquippedWeapon->SetOwner(MainCharacter);
 
-	if (GetNetMode() != ENetMode::NM_DedicatedServer)
+	if (GetNetMode() != ENetMode::NM_DedicatedServer && MainCharacter->IsLocallyControlled())
 	{
 		// Show the HUD: weapon type, ammo amount, carried ammo amount.
 		SetHUDWeaponType();
 		EquippedWeapon->SetHUDAmmo();
-		SetCarriedAmmoFromMap(EquippedWeapon->GetWeaponType());	// Set carried ammo and display the HUD.
+		
 		// Play equip sound.
-		if (MainCharacter->IsLocallyControlled())
-		{
-			UGameplayStatics::PlaySoundAtLocation(this, EquippedWeapon->EquippedSound, MainCharacter->GetActorLocation(), FRotator::ZeroRotator);
-		}
+		UGameplayStatics::PlaySoundAtLocation(this, EquippedWeapon->EquippedSound, MainCharacter->GetActorLocation(), FRotator::ZeroRotator);
 	}
+	SetCarriedAmmoFromMap(EquippedWeapon->GetWeaponType());	// Set carried ammo and display the HUD.
 	
 	MainCharacter->GetCharacterMovement()->bOrientRotationToMovement = false;
 	MainCharacter->bUseControllerRotationYaw = true;
@@ -135,33 +121,32 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(UCombatComponent, EquippedWeapon);
-	//DOREPLIFETIME(UCombatComponent, CombatState);
-	DOREPLIFETIME(UCombatComponent, bAiming);
+	DOREPLIFETIME(UCombatComponent, bAiming); 
+	DOREPLIFETIME(UCombatComponent, CombatState);
+	DOREPLIFETIME(UCombatComponent, CarriedAmmo);
 }
 
 void UCombatComponent::SetCombatState(ECombatState State)
 {
 	CombatState = State;
-	OnRep_CombatState();
-}
-
-void UCombatComponent::OnRep_CombatState()
-{
-	HandleCombatState();
+	CombatState_OnRep();
 }
 
 void UCombatComponent::SetCarriedAmmo(int32 Amount)
 {
 	CarriedAmmo = Amount;
-	HandleCarriedAmmo();
+	CarriedAmmo_OnRep();
 }
 
-void UCombatComponent::HandleCarriedAmmo()
+void UCombatComponent::CarriedAmmo_OnRep()
 {
 	if (!EquippedWeapon) return;
 	
-	SetHUDCarriedAmmo();
-	UpdateCarriedAmmoMap({EquippedWeapon->GetWeaponType(), CarriedAmmo});
+	if (GetNetMode() != ENetMode::NM_DedicatedServer)
+	{
+		SetHUDCarriedAmmo();
+		UpdateCarriedAmmoMap({ EquippedWeapon->GetWeaponType(), CarriedAmmo });
+	}
 
 	// Jump to the end section of animation when the carried ammo is not enough to fulfill the clip or the clip has been fulfilled during reloading.
 	if (EquippedWeapon->GetWeaponType() == EWeaponType::EWT_Shotgun &&
@@ -177,7 +162,6 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 	
 	bAiming = bIsAiming;
 	SetAiming_OnRep();
-	
 }
 
 void UCombatComponent::SetAiming_OnRep()
@@ -196,7 +180,7 @@ void UCombatComponent::Fire()
 {
 	// Be aware that sequence is important, because when we fire out the last ammo, the ammo will be 0
 	// and reload will be executed immediately.
-	if (EquippedWeapon && EquippedWeapon->IsAmmoEmpty())
+	if (EquippedWeapon && EquippedWeapon->IsAmmoEmpty() && CarriedAmmo > 0)
 	{
 		ServerReload();
 		if (GetNetMode() != ENetMode::NM_DedicatedServer)
@@ -245,6 +229,7 @@ void UCombatComponent::ServerFire_Implementation(bool bIsAiming, FVector InHitTa
 	{
 		if (!MainCharacter || !EquippedWeapon || CombatState != ECombatState::ECS_Unoccupied)
 			return;
+		Fire(bIsAiming);
 		MulticastFire(bIsAiming);
 	}
 }
@@ -259,15 +244,15 @@ void UCombatComponent::Fire(bool bIsAiming)
 	if (GetNetMode() != ENetMode::NM_DedicatedServer)
 	{
 		MainCharacter->PlayFireMontage(bIsAiming);		
+		StartFireTimer();
 	}
 	EquippedWeapon->Fire(HitTarget);
-	StartFireTimer();
 }
 
 void UCombatComponent::MulticastFire_Implementation(bool bIsAiming)
 {
-	if (!MainCharacter->IsLocallyControlled())
-		Fire(bIsAiming);
+	if (!MainCharacter->IsLocallyControlled() && GetNetMode() != ENetMode::NM_DedicatedServer)
+		MainCharacter->PlayFireMontage(bIsAiming);
 }
 
 void UCombatComponent::FireButtonPressed(bool bPressed)
@@ -390,12 +375,12 @@ void UCombatComponent::ReloadAnimNotify()
 {
 	if (!MainCharacter || !EquippedWeapon) return;
 
-	/* Rep notify problem. bFireButtonPressed and bAutomaticFire are local variables, so we should not check
-	 * authority here, or the client will immediately call Fire() while the Ammo is not updated. */
 	MainCharacter->SetCombatState(ECombatState::ECS_Unoccupied);
 	ReloadAmmoAmount();	// Ammo and CarriedAmmo Rep Notify triggered.
-	
-	// Local variable, so we needn't check IsLocallyControlled().
+
+	/* Rep notify problem. bFireButtonPressed and bAutomaticFire are local variables, so we should not check
+	 * authority here, or the client will immediately call Fire() while the Ammo is not updated. */
+	 // Local variable, so we needn't check IsLocallyControlled().
 	if (bFireButtonPressed && bAutomaticFire) Fire();
 }
 
@@ -411,7 +396,10 @@ void UCombatComponent::ShotgunShellAnimNotify()
 		
 		// For shotgun, change 1 ammo per reload.
 		EquippedWeapon->SetAmmo(EquippedWeapon->GetAmmo() + 1);
-		EquippedWeapon->SetHUDAmmo();
+		if (GetNetMode() != ENetMode::NM_DedicatedServer)
+		{
+			EquippedWeapon->SetHUDAmmo();
+		}
 		SetCarriedAmmo(GetCarriedAmmo() - 1);
 	}
 }
@@ -428,12 +416,23 @@ void UCombatComponent::JumpToShotgunEnd()
 
 void UCombatComponent::ThrowGrenadeAnimNotify()
 {
-	if (MainCharacter)
+	if (MainCharacter && MainCharacter->HasAuthority())
 	{
-		SetCombatState(ECombatState::ECS_Unoccupied);
-
-		AttachWeaponToRightHand();
+		MulticastThrowGrenadeEnd();
 	}
+	SetCombatState(ECombatState::ECS_Unoccupied);
+	HandleThrowGrenadeEnd();
+}
+
+void UCombatComponent::MulticastThrowGrenadeEnd_Implementation()
+{
+	if (!MainCharacter->IsLocallyControlled())
+		HandleThrowGrenadeEnd();
+}
+
+void UCombatComponent::HandleThrowGrenadeEnd()
+{
+	AttachWeaponToRightHand();
 }
 
 void UCombatComponent::LaunchGrenadeAnimNotify()
@@ -441,9 +440,15 @@ void UCombatComponent::LaunchGrenadeAnimNotify()
 	if (MainCharacter && MainCharacter->HasAuthority())
 	{
 		LaunchGrenade(HitTarget);
+		MulticastShowGrenadeAttached(false);
 	}
-	// Hide the grenade mesh on all machine.
 	ShowGrenadeAttached(false);
+}
+
+void UCombatComponent::MulticastShowGrenadeAttached_Implementation(bool IsShowGrenade)
+{
+	if (!MainCharacter->IsLocallyControlled())
+		ShowGrenadeAttached(IsShowGrenade);
 }
 
 void UCombatComponent::ReloadAmmoAmount()
@@ -470,11 +475,12 @@ void UCombatComponent::ReloadAmmoAmount()
 void UCombatComponent::ThrowGrenade()
 {
 	if (!MainCharacter || CombatState != ECombatState::ECS_Unoccupied || IsGrenadeEmpty()) return;
-	ServerThrowGrenade(HitTarget);
-	Client_ThrowGrenade();
+	if (!MainCharacter->HasAuthority())
+		ServerThrowGrenade(HitTarget);
+	HandleThrowGrenade();
 }
 
-void UCombatComponent::Client_ThrowGrenade()
+void UCombatComponent::HandleThrowGrenade()
 {
 	if (!MainCharacter || CombatState != ECombatState::ECS_Unoccupied || IsGrenadeEmpty()) return;
 
@@ -495,7 +501,7 @@ void UCombatComponent::ServerThrowGrenade_Implementation(FVector InHitTarget)
 void UCombatComponent::MulticastThrowGrenade_Implementation()
 {
 	if (!MainCharacter->IsLocallyControlled())
-		Client_ThrowGrenade();
+		HandleThrowGrenade();
 }
 
 void UCombatComponent::LaunchGrenade(const FVector_NetQuantize& Target)
@@ -573,7 +579,7 @@ void UCombatComponent::HandleGrenadeRep()
 	}
 }
 
-void UCombatComponent::HandleCombatState()
+void UCombatComponent::CombatState_OnRep()
 {
 	if (!MainCharacter) return;
 

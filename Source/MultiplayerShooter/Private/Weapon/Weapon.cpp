@@ -59,11 +59,13 @@ void AWeapon::BeginPlay()
 	}
 }
 
-void AWeapon::Tick(float DeltaTime)
+void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	Super::Tick(DeltaTime);
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME(AWeapon, Ammo);
 }
+
 
 void AWeapon::ShowPickupWidget(bool bShowWidget)
 {
@@ -101,6 +103,7 @@ void AWeapon::Dropped()
 	DetachFromActor(DetachmentTransformRules);
 	SetOwner(nullptr);
 	ResetOwnership();
+	SetLifeSpan(10);
 }
 
 void AWeapon::SpendRound()
@@ -113,10 +116,10 @@ void AWeapon::SetAmmo(const int32 Amount)
 	if (Amount < 0 || Amount > ClipSize) return;
 	
 	Ammo = Amount;
-	HandleAmmo();
+	Ammo_OnRep();
 }
 
-void AWeapon::HandleAmmo()
+void AWeapon::Ammo_OnRep()
 {
 	SetHUDAmmo();
 

@@ -20,8 +20,6 @@ public:
 	virtual void BeginPlay();
 private:
 	void FireProjectile(const FVector& TraceHitTarget);
-	UFUNCTION(Server, Reliable)
-	void ServerFireProjectile(const FVector& TraceHitTarget);
 	void EjectProjectileShell();
 
 	FRandomStream RandomStream;

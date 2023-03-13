@@ -17,6 +17,7 @@ class MULTIPLAYERSHOOTER_API AWeaponHitScan : public AWeapon
 
 protected:
 	virtual void Fire(const FVector& TraceHitTarget) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 private:
 	/* Fire, can be with or without scatter effect. */
@@ -44,4 +45,11 @@ private:
 	/* Scatter numbers, if a weapon is not a scatter weapon, then its value is 1. */
 	UPROPERTY(EditAnywhere)
 	uint32 ScatterNum = 1;
+
+	UPROPERTY(ReplicatedUsing=OnRep_HitResult)
+	FHitResult HitResult;
+
+	UFUNCTION()
+	void OnRep_HitResult();
+
 };

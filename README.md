@@ -1,6 +1,12 @@
 MultiplayerShooter
 (Unreal Engine v5.1.1)
 -----------------------
+13.03.2023
+v0.16 -	Fixed dedicated server with NULL subsystem;
+		Throw Grenade functionality fixed, replication added;
+		Dropped weapon lifetime added;
+		Ammo replication added.
+		
 08.03.2023
 v0.15 -	Animation of Equipped, Crouch and Aiming added;
 		Fire and damage replications for all ammo types implemented;

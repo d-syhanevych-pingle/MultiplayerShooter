@@ -2,7 +2,7 @@
 
 
 #include "GameState/ShooterGameState.h"
-
+#include "GameMode/ShooterGameMode.h"
 #include "GameFramework/PlayerState.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
@@ -43,7 +43,7 @@ void AShooterGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& 
 	DOREPLIFETIME_CONDITION(AShooterGameState, WarmupTime, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AShooterGameState, CooldownTime, COND_InitialOnly);
 
-	StartTimer();
+	//StartTimer();
 }
 
 void AShooterGameState::StartTimer()
@@ -52,7 +52,7 @@ void AShooterGameState::StartTimer()
 	TimerManager.SetTimer(TimerHandle_DefaultTimer, this, &AShooterGameState::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation() / GetWorldSettings()->DemoPlayTimeDilation, true);
 }
 
-/*Timers logic moved to gameState*/
+/*Timers logic moved to here*/
 void AShooterGameState::OnRep_ElapsedTime()
 {
 	OnMatchTick.Broadcast(ElapsedTime);

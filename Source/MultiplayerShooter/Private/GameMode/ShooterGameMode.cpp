@@ -9,6 +9,7 @@
 #include "GameState/ShooterGameState.h"
 #include "PlayerController/ShooterPlayerController.h"
 #include "PlayerState/ShooterPlayerState.h"
+#include "Net/UnrealNetwork.h"
 
 namespace MatchState
 {
@@ -20,26 +21,16 @@ AShooterGameMode::AShooterGameMode()
 	bDelayedStart = true;	
 }
 
-void AShooterGameMode::BeginPlay()
+void AShooterGameMode::PostLogin(APlayerController* NewPlayer)
 {
-	Super::BeginPlay();
-
-	TimerManager = &GetWorldTimerManager();
-	TimerManager->SetTimer(TimerHandle_ChangeMatchState, this, &AShooterGameMode::StartCurrentMatch, WarmupTime, true);
-}
-
-void AShooterGameMode::Tick(float DeltaSeconds)
-{
-	Super::Tick(DeltaSeconds);
-
-}
-
-void AShooterGameMode::InitGameState()
-{
-	Super::InitGameState();
-
-	AShooterGameState* ShooterGameState = GetGameState<AShooterGameState>();
-	if (!ShooterGameState) return;
+	Super::PostLogin(NewPlayer);
+	if (!TimerHandle_ChangeMatchState.IsValid())
+	{
+		TimerManager = &GetWorldTimerManager();
+		TimerManager->SetTimer(TimerHandle_ChangeMatchState, this, &AShooterGameMode::StartCurrentMatch, WarmupTime, true);
+		//if (AShooterGameState* ShooterGameState = GetGameState<AShooterGameState>())
+		//	ShooterGameState->StartTimer();
+	}
 
 }
 
@@ -51,8 +42,14 @@ void AShooterGameMode::FinishCurrentMatch()
 
 void AShooterGameMode::RestarthCurrentGame()
 {
-	RestartGame();
-	TimerManager->SetTimer(TimerHandle_ChangeMatchState, this, &AShooterGameMode::StartCurrentMatch, WarmupTime, true);
+	/*Travel to lobby after finished match*/
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->ServerTravel(TEXT("/Game/ThirdPerson/Maps/Lobby"));
+	}
+	//RestartGame();
+	//TimerManager->SetTimer(TimerHandle_ChangeMatchState, this, &AShooterGameMode::StartCurrentMatch, WarmupTime, true);
 }
 
 void AShooterGameMode::StartCurrentMatch()

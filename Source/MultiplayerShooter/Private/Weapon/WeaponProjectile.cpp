@@ -38,11 +38,6 @@ void AWeaponProjectile::BeginPlay()
 	}
 }
 
-void AWeaponProjectile::ServerFireProjectile_Implementation(const FVector& TraceHitTarget)
-{
-	FireProjectile(TraceHitTarget);
-}
-
 void AWeaponProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

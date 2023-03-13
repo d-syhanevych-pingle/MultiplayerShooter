@@ -142,7 +142,7 @@ private:
 	float Health = 100.f;
 
 	UFUNCTION()
-	void HandleHealth_OnRep(const float HealthValue);
+	void HandleHealth_OnRep(float HealthValue);
 
 	UPROPERTY(VisibleAnywhere, Category = PlayerStats)
 	bool IsRespawned = false;

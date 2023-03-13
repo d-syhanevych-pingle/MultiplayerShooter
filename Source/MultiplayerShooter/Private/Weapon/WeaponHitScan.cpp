@@ -7,12 +7,16 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Weapon/WeaponType.h"
+#include "Net/UnrealNetwork.h"
 
 void AWeaponHitScan::Fire(const FVector& TraceHitTarget)
 {
 	Super::Fire(TraceHitTarget);
 
-	FireHitScan(TraceHitTarget);
+	if (HasAuthority())
+	{
+		FireHitScan(TraceHitTarget);
+	}
 }
 
 void AWeaponHitScan::FireHitScan(const FVector& TraceHitTarget)
@@ -46,10 +50,35 @@ void AWeaponHitScan::FireHitScan(const FVector& TraceHitTarget)
 		}
 	}
 }
+void AWeaponHitScan::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AWeaponHitScan, HitResult);
+}
+
+void AWeaponHitScan::OnRep_HitResult()
+{
+	if (!HitResult.bBlockingHit) return;
+
+	UGameplayStatics::SpawnEmitterAtLocation(
+		this,
+		HitParticle,
+		HitResult.ImpactPoint
+	);
+
+	if (UParticleSystemComponent* Beam = UGameplayStatics::SpawnEmitterAtLocation(
+		this,
+		BeamParticle,
+		GetWeaponMesh()->GetSocketLocation(FName("MuzzleFlash"))
+	))
+	{
+		Beam->SetVectorParameter(FName("Target"), HitResult.ImpactPoint);
+	}
+}
 
 void AWeaponHitScan::HitScan(TMap<AActor*, float>& DamageForEachActor, const FVector& Start, const FVector& End)
 {
-	FHitResult HitResult;
 	if (GetWorld())
 	{
 		GetWorld()->LineTraceSingleByChannel(
@@ -59,24 +88,8 @@ void AWeaponHitScan::HitScan(TMap<AActor*, float>& DamageForEachActor, const FVe
 			ECollisionChannel::ECC_Visibility
 		);
 	}
-	if (!HitResult.bBlockingHit) return;
 		
-	
-	UGameplayStatics::SpawnEmitterAtLocation(
-		this,
-		HitParticle,
-		HitResult.ImpactPoint
-	);
-
-	
-	if (UParticleSystemComponent* Beam = UGameplayStatics::SpawnEmitterAtLocation(
-		this,
-		BeamParticle,
-		Start
-	))
-	{
-		Beam->SetVectorParameter(FName("Target"), HitResult.ImpactPoint);
-	}
+	OnRep_HitResult();
 
 	// Insert the 'damage for each actor' pair into the map.
 	if (DamageForEachActor.Contains(HitResult.GetActor()))

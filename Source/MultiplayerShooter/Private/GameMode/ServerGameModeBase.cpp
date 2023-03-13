@@ -2,7 +2,7 @@
 
 
 #include "GameMode/ServerGameModeBase.h"
-#include "OnlineSubsystem.h"
+#include "OnlineSubsystemNull.h"
 
 void AServerGameModeBase::BeginPlay()
 {

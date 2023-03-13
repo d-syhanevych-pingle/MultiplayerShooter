@@ -24,12 +24,9 @@ public:
 	AShooterGameMode();
 	virtual void PlayerEliminated(class AMainCharacter* EliminatedCharacter, class AShooterPlayerController* VictimController, class AShooterPlayerController* AttackerController);
 	virtual void RequestRespawn(class AMainCharacter* EliminatedCharacter, class AController* EliminatedController);
-	virtual void InitGameState();
-
 protected:
-	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaSeconds) override;
 	virtual void OnMatchStateSet() override;
+	void PostLogin(APlayerController* NewPlayer);
 
 	FTimerManager* TimerManager;
 	FTimerHandle TimerHandle_ChangeMatchState;

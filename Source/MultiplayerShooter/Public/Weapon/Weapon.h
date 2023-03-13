@@ -27,7 +27,6 @@ class MULTIPLAYERSHOOTER_API AWeapon : public AActor
 	
 public:	
 	AWeapon();
-	virtual void Tick(float DeltaTime) override;
 	void ShowPickupWidget(bool bShowWidget);
 	virtual void Fire(const FVector& TraceHitTarget);
 	FORCEINLINE EWeaponState GetWeaponState() const { return WeaponState; }
@@ -42,6 +41,7 @@ public:
 	
 protected:
 	virtual void BeginPlay() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UFUNCTION()
 	virtual void OnSphereBeginOverlap(
@@ -131,11 +131,12 @@ private:
 	bool CanSemiAutoFire = true;
 
 	/* Current ammo amount */
-	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties", ReplicatedUsing=Ammo_OnRep)
 	int32 Ammo = 30;
 
 	/* Update ammo amount, HUD */
-	void HandleAmmo();
+	UFUNCTION()
+	void Ammo_OnRep();
 
 	/* Clip size */
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")

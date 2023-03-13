@@ -37,7 +37,8 @@ public:
 	FORCEINLINE int32 GetCarriedAmmo() const { return CarriedAmmo; }
 	void SetCarriedAmmo(int32 Amount);
 	void SetHUDCarriedAmmo();
-	void HandleCarriedAmmo();
+	UFUNCTION()
+	void CarriedAmmo_OnRep();
 	int32 GetCarriedAmmoFromMap(EWeaponType WeaponType);
 	void SetCarriedAmmoFromMap(EWeaponType WeaponType);
 	void UpdateCarriedAmmoMap(const TPair<EWeaponType, int32>& CarriedAmmoPair);
@@ -67,9 +68,6 @@ public:
 	/* Launch the grenade AnimNotify. */
 	UFUNCTION(BlueprintCallable)
 	void LaunchGrenadeAnimNotify();
-
-	UFUNCTION()
-	void OnRep_CombatState();
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -125,10 +123,11 @@ private:
 	 */
 
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true")/*, ReplicatedUsing=OnRep_CombatState*/)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), ReplicatedUsing=CombatState_OnRep)
 	ECombatState CombatState;
 
-	void HandleCombatState();
+	UFUNCTION()
+	void CombatState_OnRep();
 
 	
 	/** 
@@ -213,7 +212,7 @@ private:
 	void ReloadAmmoAmount();
 	
 	/* Carried Ammo, right part of xxx/xxx, which means the total ammo except for the part in the clip. */
-	UPROPERTY(EditAnywhere, Category = Ammo)
+	UPROPERTY(EditAnywhere, Category = Ammo, ReplicatedUsing=CarriedAmmo_OnRep)
 	int32 CarriedAmmo = 0;
 
 	UPROPERTY(EditAnywhere, Category = Ammo)
@@ -221,16 +220,22 @@ private:
 
 	
 	/* 
-	 *	Throw Grenade
+	 *	Throw Grenade functionality
 	 */
-
-	
 	void ThrowGrenade();
-	void Client_ThrowGrenade();
+	void HandleThrowGrenade();
 	UFUNCTION(Server, Reliable)
 	void ServerThrowGrenade(FVector InHitTarget);
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastThrowGrenade();
+
+	void HandleThrowGrenadeEnd();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastThrowGrenadeEnd();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastShowGrenadeAttached(bool IsShowGrenade);
+	
 
 	/* Attach the weapon to hand when throwing the grenade */
 	void AttachWeaponToLeftHand();

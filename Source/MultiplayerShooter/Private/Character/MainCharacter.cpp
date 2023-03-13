@@ -333,7 +333,6 @@ void AMainCharacter::PlayReloadMontage() const
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && ReloadMontage)
 	{
-		AnimInstance->Montage_Play(ReloadMontage);
 		FName SectionName;
 		switch (Combat->EquippedWeapon->GetWeaponType())
 		{
@@ -363,19 +362,17 @@ void AMainCharacter::PlayReloadMontage() const
 			break;
 		}
 		AnimInstance->Montage_JumpToSection(SectionName);
+		AnimInstance->Montage_Play(ReloadMontage);
 	}
 }
 
 void AMainCharacter::PlayThrowGrenadeMontage() const
 {
-	UE_LOG(LogTemp, Display, TEXT("PlayThrowGrenadeMontage "));
 	if (!GetMesh()) return;
 	
-	UE_LOG(LogTemp, Display, TEXT("GetMesh() true"));
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && ThrowGrenadeMontage)
 	{
-		UE_LOG(LogTemp, Display, TEXT("AnimInstance && ThrowGrenadeMontage true"));
 		AnimInstance->Montage_Play(ThrowGrenadeMontage);
 	}
 }
@@ -680,7 +677,7 @@ void AMainCharacter::SetHealth(const float HealthValue)
 	HandleHealth_OnRep(HealthValue);
 }
 
-void AMainCharacter::HandleHealth_OnRep(const float HealthValue)
+void AMainCharacter::HandleHealth_OnRep(float HealthValue)
 {
 	if (GetNetMode() != ENetMode::NM_DedicatedServer)
 		SetHUDHealth();
