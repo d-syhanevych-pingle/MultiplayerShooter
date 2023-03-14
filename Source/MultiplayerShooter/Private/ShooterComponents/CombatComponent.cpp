@@ -19,7 +19,8 @@ UCombatComponent::UCombatComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 
 	// Initialize the CarriedAmmoMap.
-	InitCarriedAmmoMap();		
+	/*if (MainCharacter && MainCharacter->HasAuthority())
+		InitCarriedAmmoMap();	*/	
 }
 
 void UCombatComponent::BeginPlay()
@@ -35,7 +36,8 @@ void UCombatComponent::BeginPlay()
 		if (EquippedWeapon) CrosshairSpread = EquippedWeapon->CrosshairsMinSpread;
 	}
 	// Initialize the CarriedAmmoMap.
-	InitCarriedAmmoMap();
+	if (MainCharacter && MainCharacter->HasAuthority())
+		InitCarriedAmmoMap();
 }
 
 void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -68,6 +70,7 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	// Set weapon and its state.
 	AWeapon* PreviousWeapon = EquippedWeapon;
 	EquippedWeapon = WeaponToEquip;
+	SetCarriedAmmoFromMap(EquippedWeapon->GetWeaponType());	// Set carried ammo
 	EquippedWeapon_OnRep(PreviousWeapon);
 	FTimerHandle DelayTimerHandle;
 
@@ -99,7 +102,6 @@ void UCombatComponent::EquippedWeapon_OnRep(AWeapon* PreviousWeapon)
 		// Play equip sound.
 		UGameplayStatics::PlaySoundAtLocation(this, EquippedWeapon->EquippedSound, MainCharacter->GetActorLocation(), FRotator::ZeroRotator);
 	}
-	SetCarriedAmmoFromMap(EquippedWeapon->GetWeaponType());	// Set carried ammo and display the HUD.
 	
 	MainCharacter->GetCharacterMovement()->bOrientRotationToMovement = false;
 	MainCharacter->bUseControllerRotationYaw = true;
@@ -136,6 +138,7 @@ void UCombatComponent::SetCarriedAmmo(int32 Amount)
 {
 	CarriedAmmo = Amount;
 	CarriedAmmo_OnRep();
+	UpdateCarriedAmmoMap({ EquippedWeapon->GetWeaponType(), CarriedAmmo });
 }
 
 void UCombatComponent::CarriedAmmo_OnRep()
@@ -145,7 +148,6 @@ void UCombatComponent::CarriedAmmo_OnRep()
 	if (GetNetMode() != ENetMode::NM_DedicatedServer)
 	{
 		SetHUDCarriedAmmo();
-		UpdateCarriedAmmoMap({ EquippedWeapon->GetWeaponType(), CarriedAmmo });
 	}
 
 	// Jump to the end section of animation when the carried ammo is not enough to fulfill the clip or the clip has been fulfilled during reloading.

@@ -65,6 +65,6 @@ private:
 	
 	void Turn();
 
-	UFUNCTION()
-	void SpawnBuffEffectAttached(class AMainCharacter* AttachedCharacter) const;
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastSpawnBuffEffectAttached(class AMainCharacter* AttachedCharacter) const;
 };

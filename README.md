@@ -1,6 +1,10 @@
 MultiplayerShooter
 (Unreal Engine v5.1.1)
 -----------------------
+14.03.2023
+v0.17 - Pickup Ammo replication added;
+		Carried Ammo count fixed.
+
 13.03.2023
 v0.16 -	Fixed dedicated server with NULL subsystem;
 		Throw Grenade functionality fixed, replication added;

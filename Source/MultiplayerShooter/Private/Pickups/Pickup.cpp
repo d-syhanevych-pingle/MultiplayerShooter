@@ -48,7 +48,7 @@ void APickup::Destroyed()
 {
 	Super::Destroyed();
 	
-	if (SoundPickup)
+	if (SoundPickup && GetNetMode() != ENetMode::NM_DedicatedServer)
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, SoundPickup, GetActorLocation());
 	}
@@ -58,24 +58,28 @@ void APickup::BeginPlay()
 {
 	Super::BeginPlay();
 
-	PickupCollision->OnComponentBeginOverlap.AddDynamic(this, &APickup::OnSphereBeginOverlap);
-	GetWorldTimerManager().SetTimer(TurnTimerHandle, this, &APickup::Turn, TurnTimerRate, true);
+	if (HasAuthority())
+	{
+		PickupCollision->OnComponentBeginOverlap.AddDynamic(this, &APickup::OnSphereBeginOverlap);	
+	}
+	else if (GetNetMode() != ENetMode::NM_DedicatedServer)
+		GetWorldTimerManager().SetTimer(TurnTimerHandle, this, &APickup::Turn, TurnTimerRate, true);
 }
 
 void APickup::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (AMainCharacter* MainCharacter = Cast<AMainCharacter>(OtherActor))
 	{
-		SpawnBuffEffectAttached(MainCharacter);
+		MulticastSpawnBuffEffectAttached(MainCharacter);
 		OnPickupTaken.Broadcast();
 		OnPickupTakenNative.Broadcast();
 		Destroy();
 	}
 }
 
-void APickup::SpawnBuffEffectAttached(AMainCharacter* AttachedCharacter) const
+void APickup::MulticastSpawnBuffEffectAttached_Implementation(AMainCharacter* AttachedCharacter) const
 {
-	if (NiagaraEffect && AttachedCharacter && AttachedCharacter->GetMesh())
+	if (GetNetMode() != ENetMode::NM_DedicatedServer && NiagaraEffect && AttachedCharacter && AttachedCharacter->GetMesh())
 	{
 		const FVector BuffSocketLocation = AttachedCharacter->GetMesh()->GetSocketLocation(FName("BuffEffect"));
 		UNiagaraFunctionLibrary::SpawnSystemAttached(
