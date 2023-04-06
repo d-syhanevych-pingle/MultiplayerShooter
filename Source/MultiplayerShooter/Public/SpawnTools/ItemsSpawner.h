@@ -15,10 +15,6 @@ class MULTIPLAYERSHOOTER_API AItemsSpawner : public AActor
 {
 	GENERATED_BODY()
 	
-public:	
-	// Sets default values for this actor's properties
-	AItemsSpawner();
-	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -50,5 +46,6 @@ private:
 
 	FDelegateHandle WeaponTakenDelegateHandle;
 	FDelegateHandle PickupTakenDelegateHandle;
+	FTimerHandle TimerSpawnWeaponHandle;
 
 };

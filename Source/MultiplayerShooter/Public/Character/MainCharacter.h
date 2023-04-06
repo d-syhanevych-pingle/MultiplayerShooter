@@ -49,7 +49,10 @@ public:
 	void PlayFireMontage(bool bAiming) const;
 	void PlayReloadMontage() const;
 	void PlayThrowGrenadeMontage() const;
-	void Eliminated();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastEliminated();
+
 	void EquipWeapon(AWeapon* EquipWeapon);
 
 	/* Display the sniper scope effect when aiming. */
@@ -138,7 +141,7 @@ private:
 	UPROPERTY(EditAnywhere, Category = PlayerStats)
 	float MaxHealth = 100.f;
 	
-	UPROPERTY(VisibleAnywhere, Category = PlayerStats, ReplicatedUsing=HandleHealth_OnRep)
+	UPROPERTY(EditAnywhere, Category = PlayerStats, ReplicatedUsing=HandleHealth_OnRep)
 	float Health = 100.f;
 
 	UFUNCTION()
@@ -231,7 +234,8 @@ public:
 	void SetHealth(const float HealthValue);
 	FORCEINLINE void SetMaxHealth(const float MaxHealthValue) { MaxHealth = MaxHealthValue; }
 	void SetIsRespawned();
-	void HandleIsRespawned();
+	UFUNCTION(Client, Reliable)
+	void ClientHandleIsRespawned();
 	ECombatState GetCombatState() const;
 	void SetCombatState(ECombatState State);
 	UAnimMontage* GetReloadMontage() const { return ReloadMontage; }

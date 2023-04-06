@@ -126,7 +126,7 @@ void AWeapon::Ammo_OnRep()
 	WeaponOwnerCharacter = WeaponOwnerCharacter ? WeaponOwnerCharacter : Cast<AMainCharacter>(GetOwner());
 	
 	// Jump to the end section of animation when the clip is full when reloading the shotgun.
-	if (WeaponOwnerCharacter->GetCombat() && WeaponType == EWeaponType::EWT_Shotgun && IsAmmoFull())
+	if (WeaponOwnerCharacter && WeaponOwnerCharacter->GetCombat() && WeaponType == EWeaponType::EWT_Shotgun && IsAmmoFull())
 	{
 		WeaponOwnerCharacter->GetCombat()->JumpToShotgunEnd();
 	}

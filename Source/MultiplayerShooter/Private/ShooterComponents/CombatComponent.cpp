@@ -17,10 +17,6 @@
 UCombatComponent::UCombatComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-
-	// Initialize the CarriedAmmoMap.
-	/*if (MainCharacter && MainCharacter->HasAuthority())
-		InitCarriedAmmoMap();	*/	
 }
 
 void UCombatComponent::BeginPlay()

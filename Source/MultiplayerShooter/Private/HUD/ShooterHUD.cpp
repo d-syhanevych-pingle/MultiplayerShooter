@@ -7,6 +7,7 @@
 #include "HUD/AnnouncementWidget.h"
 #include "Character/MainCharacter.h"
 #include "GameState/ShooterGameState.h"
+#include "GameMode/ShooterGameMode.h"
 #include "PlayerState/ShooterPlayerState.h"
 #include "ShooterComponents/CombatComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -34,12 +35,38 @@ void AShooterHUD::BeginPlay()
 {
 	Super::BeginPlay();
 
+	//ResetHUD();
 	//AddAnnouncement();
+}
+
+void AShooterHUD::ResetHUD(AShooterGameState* ShooterGameState)
+{
+	if (const AShooterGameMode* ShooterGameMode = Cast<AShooterGameMode>(ShooterGameState->GetDefaultGameMode()))
+	{
+		WarmupTime = ShooterGameMode->GetWarmupTime();
+		MatchTime = ShooterGameMode->GetMatchTime();
+		CooldownTime = ShooterGameMode->GetCooldownTime();
+	}
+	ShooterGameState->OnMatchWarmupTick.AddDynamic(this, &AShooterHUD::UpdateAnnouncementWarmup);
+	ShooterGameState->OnMatchTick.AddDynamic(this, &AShooterHUD::UpdateMatchCountDown);
+	ShooterGameState->OnMatchCooldownTick.AddDynamic(this, &AShooterHUD::UpdateAnnouncementCooldown);
+	ShooterGameState->OnMatchStateChanged.AddDynamic(this, &AShooterHUD::HandleMatchState);
+}
+
+void AShooterHUD::UpdateAnnouncementWarmup(int32 CurrentTime)
+{
+	if (CurrentTime <= WarmupTime && CurrentTime >= 0)
+		UpdateAnnouncement(WarmupTime - CurrentTime);
+}
+
+void AShooterHUD::UpdateAnnouncementCooldown(int32 CurrentTime)
+{
+	if (CurrentTime <= CooldownTime && CurrentTime >= 0)
+		UpdateAnnouncement(CooldownTime - CurrentTime);
 }
 
 void AShooterHUD::AddCharacterOverlay()
 {
-	// APlayerController* PlayerController = GetOwningPlayerController();
 	if (CharacterOverlayClass)
 	{
 		CharacterOverlay = CreateWidget<UCharacterOverlay>(GetWorld(), CharacterOverlayClass, FName("Character Overlay"));
@@ -52,7 +79,6 @@ void AShooterHUD::AddCharacterOverlay()
 
 void AShooterHUD::AddAnnouncement()
 {
-	// APlayerController* PlayerController = GetOwningPlayerController();
 	if (AnnouncementClass)
 	{
 		Announcement = CreateWidget<UAnnouncementWidget>(GetWorld(), AnnouncementClass, FName("Announcement"));
@@ -102,15 +128,27 @@ void AShooterHUD::DrawCrosshairs(UTexture2D* Texture, const FVector2D& Spread)
 	);
 }
 
-void AShooterHUD::HandleMatchState(FName MatchState)
+void AShooterHUD::HandleMatchState(FName MatchStateIn)
 {
+	if (MatchState == MatchStateIn)
+		return;
+	MatchState = MatchStateIn;
+
 	if (MatchState == MatchState::InProgress)
 	{
-		if (!CharacterOverlay) AddCharacterOverlay();
-
 		if (Announcement)
 		{
 			Announcement->SetVisibility(ESlateVisibility::Hidden);
+		}
+
+		if (!CharacterOverlay) AddCharacterOverlay();
+
+		if (CharacterOverlay)
+		{
+			if (const AShooterPlayerController* PlayerController = Cast<AShooterPlayerController>(GetOwningPlayerController()))
+			{
+				UpdateMatchCountDown(MatchTime);			
+			}
 		}
 	}
 	else if (MatchState == MatchState::Cooldown)
@@ -122,6 +160,10 @@ void AShooterHUD::HandleMatchState(FName MatchState)
 		CharacterOverlay->RemoveFromParent();
 		Announcement->Announce_0->SetText(FText::FromString("New Match Starts in:"));
 		Announcement->Announce_1->SetText(FText::FromString(""));
+		if (const AShooterPlayerController* PlayerController = Cast<AShooterPlayerController>(GetOwningPlayerController()))
+		{
+			UpdateAnnouncement(CooldownTime);
+		}
 		Announcement->SetVisibility(ESlateVisibility::Visible);
 
 		// When the match ends, we show the winner announcement.
@@ -168,7 +210,7 @@ void AShooterHUD::HandleMatchState(FName MatchState)
 
 		if (const AShooterPlayerController* PlayerController = Cast<AShooterPlayerController>(GetOwningPlayerController()))
 		{
-			UpdateAnnouncement(PlayerController->GetWarmupTime());
+			UpdateAnnouncement(WarmupTime);
 		}
 	}
 }
@@ -191,3 +233,88 @@ void AShooterHUD::UpdateAnnouncement(int32 Countdown)
 	Announcement->TimeText->SetText(FText::FromString(CountdownString));
 }
 
+void AShooterHUD::UpdateMatchCountDown(int32 CurrentTime)
+{
+	if (CurrentTime > MatchTime || CurrentTime < 0)
+		return;
+
+	int32 Countdown = MatchTime - CurrentTime;
+
+	if (!GetCharacterOverlay() || !GetCharacterOverlay()->MatchCountdown) return;
+
+	if (Countdown > 0 && Countdown <= 30)
+	{
+		// Urgent countdown effect, turns red and play blink animation. (animation no need to loop, because update is loop every 1 second)
+		CharacterOverlay->MatchCountdown->SetColorAndOpacity((FLinearColor(1.f, 0.f, 0.f)));
+		CharacterOverlay->PlayAnimation(CharacterOverlay->TimeBlink);
+	}
+	else if (Countdown <= 0)
+	{
+		CharacterOverlay->MatchCountdown->SetText(FText());
+		CharacterOverlay->MatchCountdown->SetColorAndOpacity((FLinearColor(1.f, 1.f, 1.f)));
+		CharacterOverlay->StopAnimation(CharacterOverlay->TimeBlink);
+		return;
+	}
+	const int32 Minute = Countdown / 60.f;
+	const int32 Second = Countdown - 60 * Minute;
+	const FString MatchCountdown = FString::Printf(TEXT("%02d:%02d"), Minute, Second);
+	CharacterOverlay->MatchCountdown->SetText(FText::FromString(MatchCountdown));
+}
+
+void AShooterHUD::UpdateTopScorePlayer()
+{
+	const AShooterGameState* ShooterGameState = Cast<AShooterGameState>(UGameplayStatics::GetGameState(this));
+	if (!ShooterGameState) return;
+
+	auto PlayerStates = ShooterGameState->GetTopScorePlayerStates();
+	if (PlayerStates.IsEmpty()) return;
+
+	if (!CharacterOverlay || !CharacterOverlay->TopScorePlayer) return;
+
+	FString PlayerName;
+	for (const auto& State : PlayerStates)
+	{
+		if (!State) return;
+		PlayerName.Append(FString::Printf(TEXT("%s\n"), *State->GetPlayerName()));
+	}
+	GetCharacterOverlay()->TopScorePlayer->SetText(FText::FromString(PlayerName));
+}
+
+void AShooterHUD::UpdateTopScore()
+{
+	const AShooterGameState* ShooterGameState = Cast<AShooterGameState>(UGameplayStatics::GetGameState(this));
+	if (!ShooterGameState) return;
+
+	const auto PlayerStates = ShooterGameState->GetTopScorePlayerStates();
+	const float TopScore = ShooterGameState->GetTopScore();
+	if (PlayerStates.IsEmpty()) return;
+
+	if (!GetCharacterOverlay() || !GetCharacterOverlay()->TopScore) return;
+
+	FString TopScoreString;
+	for (int32 i = 0; i < PlayerStates.Num(); ++i)
+	{
+		TopScoreString.Append(FString::Printf(TEXT("%d\n"), FMath::CeilToInt32(TopScore)));
+	}
+	GetCharacterOverlay()->TopScore->SetText(FText::FromString(TopScoreString));
+}
+
+void AShooterHUD::UpdatePlayerScore(float Value)
+{
+	const FString ScoreText = FString::Printf(TEXT("%d"), FMath::FloorToInt(Value));
+
+	if (!GetCharacterOverlay() || !GetCharacterOverlay()->Score)
+		return;
+
+	GetCharacterOverlay()->Score->SetText(FText::FromString(ScoreText));
+}
+
+void AShooterHUD::UpdatePlayerDefeats(int32 Value)
+{
+	const FString DefeatsText = FString::Printf(TEXT("%d"), Value);
+
+	if (!GetCharacterOverlay() || !GetCharacterOverlay()->Defeats)
+		return;
+
+	GetCharacterOverlay()->Defeats->SetText(FText::FromString(DefeatsText));
+}

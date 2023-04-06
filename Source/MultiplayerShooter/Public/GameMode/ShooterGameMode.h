@@ -24,10 +24,11 @@ public:
 	AShooterGameMode();
 	virtual void PlayerEliminated(class AMainCharacter* EliminatedCharacter, class AShooterPlayerController* VictimController, class AShooterPlayerController* AttackerController);
 	virtual void RequestRespawn(class AMainCharacter* EliminatedCharacter, class AController* EliminatedController);
-protected:
-	virtual void OnMatchStateSet() override;
-	void PostLogin(APlayerController* NewPlayer);
+	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual void PostSeamlessTravel();
+	virtual void InitGameState();
 
+protected:
 	FTimerManager* TimerManager;
 	FTimerHandle TimerHandle_ChangeMatchState;
 	
@@ -56,11 +57,21 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Match Parameters")
 	int32 CountOfBots = 0; /* not use now */
 
-	void FinishCurrentMatch();
-	void RestarthCurrentGame();
-	void StartCurrentMatch();
+	UFUNCTION()
+	void FinishCurrentMatch(int32 Countdown);
+
+	UFUNCTION()
+	void RestartCurrentGame(int32 Countdown);
+
+	UFUNCTION()
+	void StartCurrentMatch(int32 Countdown);
+
+	const FString GetRandomTravelPath();
 
 public:
+
+	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
 
 	FORCEINLINE int32 GetMaxCountOfPlayes() const {	return MaxCountOfPlayes; }
 	FORCEINLINE float GetWarmupTime() const { return WarmupTime; }

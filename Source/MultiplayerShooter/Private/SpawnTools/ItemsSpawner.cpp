@@ -5,13 +5,6 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/GameMode.h"
 
-// Sets default values
-AItemsSpawner::AItemsSpawner()
-{
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-}
-
 void AItemsSpawner::InitializeLocationForSpawn()
 {
 	TArray<AActor*> FoundActors;
@@ -114,9 +107,8 @@ void AItemsSpawner::SpawnRandomWeaponWithDelay(AWeaponSpawnerLocation* SpawnerLo
 
 	SpawnerLocation->OnWeaponTaken();
 
-	FTimerHandle TimerHandle;
 	int32 RandomTime = FMath::RandRange(5, 20);
-	World->GetTimerManager().SetTimer(TimerHandle, [this, SpawnerLocation]()
+	World->GetTimerManager().SetTimer(TimerSpawnWeaponHandle, [this, SpawnerLocation]()
 		{
 			SpawnRandomWeaponByLocation(SpawnerLocation);
 		}, RandomTime, false);
@@ -124,6 +116,8 @@ void AItemsSpawner::SpawnRandomWeaponWithDelay(AWeaponSpawnerLocation* SpawnerLo
 
 void AItemsSpawner::SpawnRandomPickupByLocation(APickupSpawnerLocation* SpawnerLocation)
 {
+	if (!GetOuter())
+		return;
 	UWorld* const World = GetWorld();
 	if (!World)
 		return;

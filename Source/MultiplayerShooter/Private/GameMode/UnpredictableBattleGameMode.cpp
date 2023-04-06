@@ -15,9 +15,9 @@ void AUnpredictableBattleGameMode::BeginPlay()
 	SpawnerEquipment = World->SpawnActor<AEquipmentSpawner>(EquipmentSpawner, FVector::ZeroVector, FRotator::ZeroRotator);
 }
 
-void AUnpredictableBattleGameMode::PostLogin(APlayerController* NewPlayer)
+void AUnpredictableBattleGameMode::GenericPlayerInitialization(AController* NewPlayer)
 {
-	Super::PostLogin(NewPlayer);
+	Super::GenericPlayerInitialization(NewPlayer);
 
 	if (!NewPlayer)
 		return;
@@ -25,7 +25,7 @@ void AUnpredictableBattleGameMode::PostLogin(APlayerController* NewPlayer)
 	if (AShooterPlayerController* ShooterPlayerController = Cast<AShooterPlayerController>(NewPlayer))
 	{
 		ShooterPlayerController->OnPawnPosses.AddDynamic(this, &AUnpredictableBattleGameMode::EquipRandomWeaponForCharacter);
-	}	
+	}
 }
 
 void AUnpredictableBattleGameMode::EquipRandomWeaponForCharacter(AShooterPlayerController* ShooterPlayerController)

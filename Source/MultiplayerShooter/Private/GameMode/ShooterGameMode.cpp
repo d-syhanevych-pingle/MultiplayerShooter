@@ -5,6 +5,8 @@
 #include "Character/MainCharacter.h"
 #include "GameFramework/PlayerStart.h"
 #include "GameFramework/PlayerState.h"
+#include "SaveSystem/ShooterGameInstanceSubsystem.h"
+#include "DeveloperSettings/GameMapsModesDeveloperSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameState/ShooterGameState.h"
 #include "PlayerController/ShooterPlayerController.h"
@@ -21,54 +23,103 @@ AShooterGameMode::AShooterGameMode()
 	bDelayedStart = true;	
 }
 
-void AShooterGameMode::PostLogin(APlayerController* NewPlayer)
+void AShooterGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+
+	// (Save/Load logic moved into ShooterGameInstanceSubsystem)
+	UShooterGameInstanceSubsystem* ShooterGameInstanceSubsystem = GetGameInstance()->GetSubsystem<UShooterGameInstanceSubsystem>();
+
+	FString SelectedSaveSlot = UGameplayStatics::ParseOption(Options, "ShooterSavedGame");
+	ShooterGameInstanceSubsystem->LoadSaveGame(SelectedSaveSlot);
+}
+
+void AShooterGameMode::InitGameState()
+{
+	Super::InitGameState();
+
+	if (AShooterGameState* ShooterGameState = Cast<AShooterGameState>(GameState))
+	{
+		ShooterGameState->OnMatchWarmupTick.AddDynamic(this, &AShooterGameMode::StartCurrentMatch);
+		ShooterGameState->OnMatchTick.AddDynamic(this, &AShooterGameMode::FinishCurrentMatch);
+		ShooterGameState->OnMatchCooldownTick.AddDynamic(this, &AShooterGameMode::RestartCurrentGame);
+	}
+}
+
+void AShooterGameMode::PostLogin(APlayerController* NewPlayer) 
 {
 	Super::PostLogin(NewPlayer);
-	if (!TimerHandle_ChangeMatchState.IsValid())
+
+	/*const int32 NumberOfPlayers = GameState.Get()->PlayerArray.Num();
+	if (NumberOfPlayers >= 2 && !TimerHandle_ChangeMatchState.IsValid())
 	{
-		TimerManager = &GetWorldTimerManager();
-		TimerManager->SetTimer(TimerHandle_ChangeMatchState, this, &AShooterGameMode::StartCurrentMatch, WarmupTime, true);
-		//if (AShooterGameState* ShooterGameState = GetGameState<AShooterGameState>())
-		//	ShooterGameState->StartTimer();
-	}
+		if (AShooterGameState* ShooterGameState = Cast<AShooterGameState>(GameState))
+			ShooterGameState->StartTimer();
+	}*/
+}
+void AShooterGameMode::PostSeamlessTravel()
+{
+	Super::PostSeamlessTravel();
+
+	//const int32 NumberOfPlayers = GameState.Get()->PlayerArray.Num();
+	//if (NumberOfPlayers >= 2 && !TimerHandle_ChangeMatchState.IsValid())
+	//{
+	//	if (AShooterGameState* ShooterGameState = Cast<AShooterGameState>(GameState))
+	//		ShooterGameState->StartTimer();
+	//}
+}
+
+void AShooterGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer)
+{
+	UShooterGameInstanceSubsystem* ShooterGameInstanceSubsystem = GetGameInstance()->GetSubsystem<UShooterGameInstanceSubsystem>();
+	ShooterGameInstanceSubsystem->HandleStartingNewPlayer(NewPlayer);
+
+	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
 
 }
 
-void AShooterGameMode::FinishCurrentMatch()
+void AShooterGameMode::StartCurrentMatch(int32 Countdown)
 {
-	SetMatchState(MatchState::Cooldown);
-	TimerManager->SetTimer(TimerHandle_ChangeMatchState, this, &AShooterGameMode::RestarthCurrentGame, CooldownTime, true);
+	if (Countdown >= WarmupTime)
+		StartMatch();
 }
 
-void AShooterGameMode::RestarthCurrentGame()
+void AShooterGameMode::FinishCurrentMatch(int32 Countdown)
 {
-	/*Travel to lobby after finished match*/
-	UWorld* World = GetWorld();
-	if (World)
+	if (Countdown >= MatchTime)
+		SetMatchState(MatchState::Cooldown);
+}
+
+void AShooterGameMode::RestartCurrentGame(int32 Countdown)
+{
+	if (Countdown >= CooldownTime)
 	{
-		World->ServerTravel(TEXT("/Game/ThirdPerson/Maps/Lobby"));
+		bUseSeamlessTravel = true;
+		FString TravelURL = GetRandomTravelPath();
+		UE_LOG(LogTemp, Log, TEXT("ServerTravel - Travel to: %s"), *TravelURL);
+
+		UWorld* World = GetWorld();
+		if (World)
+			World->ServerTravel(TravelURL);
 	}
-	//RestartGame();
-	//TimerManager->SetTimer(TimerHandle_ChangeMatchState, this, &AShooterGameMode::StartCurrentMatch, WarmupTime, true);
+	
 }
 
-void AShooterGameMode::StartCurrentMatch()
+const FString AShooterGameMode::GetRandomTravelPath()
 {
-	StartMatch();
-	TimerManager->SetTimer(TimerHandle_ChangeMatchState, this, &AShooterGameMode::FinishCurrentMatch, MatchTime, true);
-}
+	/* Get Random Map */
+	const TArray<FMapDescription> AvaliableMaps = GetDefault<UGameMapsModesDeveloperSettings>()->AvaliableMaps;
+	int32 MapIndex = FMath::RandRange(0, AvaliableMaps.Num() - 1);
+	FString MapPath = AvaliableMaps[MapIndex].Map.GetLongPackageName();
 
-void AShooterGameMode::OnMatchStateSet()
-{
-	Super::OnMatchStateSet();
+	/* Get Random GameMode by Map*/
+	const TArray<TSoftClassPtr<AShooterGameMode>> AvaliableGameModes = AvaliableMaps[MapIndex].AvaliableGameModes;
+	int32 GameModeIndex = FMath::RandRange(0, AvaliableGameModes.Num() - 1);
+	FString GameModeName = AvaliableGameModes[GameModeIndex].GetAssetName();
+	GameModeName = AvaliableGameModes[GameModeIndex].GetLongPackageName();
+	GameModeName = AvaliableGameModes[GameModeIndex].ToSoftObjectPath().GetAssetPathString();
 
-	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
-	{
-		if (AShooterPlayerController* ShooterPlayerController = Cast<AShooterPlayerController>(*It))
-		{
-			ShooterPlayerController->OnMatchStateSet(MatchState);
-		}
-	}
+	return FString::Printf(TEXT("%s?game=%s?listen"), *MapPath, *GameModeName);
 }
 
 void AShooterGameMode::PlayerEliminated(AMainCharacter* EliminatedCharacter, AShooterPlayerController* VictimController, AShooterPlayerController* AttackerController)
@@ -85,13 +136,17 @@ void AShooterGameMode::PlayerEliminated(AMainCharacter* EliminatedCharacter, ASh
 		AttackerPlayerState->UpdateScore();
 		VictimPlayerState->UpdateDefeats();
 	}
-	EliminatedCharacter->Eliminated();
+	EliminatedCharacter->MulticastEliminated();
 
 	AShooterGameState* ShooterGameState = GetGameState<AShooterGameState>();
 	if (!ShooterGameState) return;
 
 	// Update GameState Info
 	ShooterGameState->UpdateTopScorePlayerStates(AttackerPlayerState);
+
+	UShooterGameInstanceSubsystem* ShooterGameInstanceSubsystem = GetGameInstance()->GetSubsystem<UShooterGameInstanceSubsystem>();
+	// Immediately auto save on death
+	ShooterGameInstanceSubsystem->WriteSaveGame();
 }
 
 void AShooterGameMode::RequestRespawn(AMainCharacter* EliminatedCharacter, AController* EliminatedController)

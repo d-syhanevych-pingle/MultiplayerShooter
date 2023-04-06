@@ -1,6 +1,11 @@
 MultiplayerShooter
 (Unreal Engine v5.1.1)
 -----------------------
+06.04.2023
+v0.18 - Score system replication added;
+		Timer and spawn equipment after player login fixed;
+		Save score system by GameInstance added when traveling between levels.
+		
 14.03.2023
 v0.17 - Pickup Ammo replication added;
 		Carried Ammo count fixed.

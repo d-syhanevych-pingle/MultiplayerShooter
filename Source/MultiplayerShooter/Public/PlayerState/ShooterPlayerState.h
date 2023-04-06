@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
+#include "SaveSystem/ShooterSaveGame.h"
 #include "ShooterPlayerState.generated.h"
 
 /**
@@ -19,11 +20,26 @@ public:
 
 	void UpdateDefeats();
 
+	virtual void OnRep_Score();
+
+	UFUNCTION()
+	void OnRep_Defeats();
+
+	UFUNCTION(BlueprintNativeEvent)
+	void SavePlayerState(UShooterSaveGame* SaveObject);
+
+	UFUNCTION(BlueprintNativeEvent)
+	void LoadPlayerState(UShooterSaveGame* SaveObject);
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	int32 GetDefeats() const { return Defeats; };
+
 private:
 	UPROPERTY(EditAnywhere)
-	float ScoreAmount = 5.f;
+	float ScoreAmount = 1.f;
 
-	UPROPERTY()
+	UPROPERTY(ReplicatedUsing =OnRep_Defeats)
 	int32 Defeats = 0;
 
 	UPROPERTY()

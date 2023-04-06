@@ -67,6 +67,7 @@ AMainCharacter::AMainCharacter()
 	// Net update frequency.
 	NetUpdateFrequency = 66.f;
 	MinNetUpdateFrequency = 33.f;
+
 }
 
 void AMainCharacter::BeginPlay()
@@ -209,7 +210,7 @@ void AMainCharacter::HideCharacterIfClose()
 	Combat->EquippedWeapon->GetWeaponMesh()->SetVisibility(!bHideWeapon);
 }
 
-void AMainCharacter::Eliminated()
+void AMainCharacter::MulticastEliminated_Implementation()
 {
 	if (Combat && Combat->EquippedWeapon)
 	{
@@ -226,25 +227,31 @@ void AMainCharacter::Eliminated()
 		GetCharacterMovement()->DisableMovement();
 		GetCharacterMovement()->StopMovementImmediately();
 	}
-	ShooterPlayerController = ShooterPlayerController ? ShooterPlayerController : Cast<AShooterPlayerController>(Controller);
-	if (ShooterPlayerController)
+	if (GetNetMode() != ENetMode::NM_DedicatedServer)
 	{
-		// Play the defeated HUD effect
-		ShooterPlayerController->DisplayDefeatedMsg();
+		ShooterPlayerController = ShooterPlayerController ? ShooterPlayerController : Cast<AShooterPlayerController>(Controller);
+		if (ShooterPlayerController)
+		{
+			// Play the defeated HUD effect
+			ShooterPlayerController->DisplayDefeatedMsg();
 
-		// Disable the controller input.
-		DisableInput(ShooterPlayerController);
+			// Disable the controller input.
+			DisableInput(ShooterPlayerController);
 
-		// We need to make sure bFireButtonPressed is cleared or the weapon will keep firing because the input is disabled
-		FireButtonReleased();
+			// We need to make sure bFireButtonPressed is cleared or the weapon will keep firing because the input is disabled
+			FireButtonReleased();
+		}
+
+		IsAiming() ? PlayDeathIronMontage() : PlayDeathHipMontage();
+
+		StartDissolve();
+		PlayElimBotEffect();
+
+		OverheadWidget->DestroyComponent(true);
 	}
-	IsAiming() ? PlayDeathIronMontage() : PlayDeathHipMontage();
-
-	StartDissolve();
-	PlayElimBotEffect();
-
-	OverheadWidget->DestroyComponent(true);
-	GetWorldTimerManager().SetTimer(RespawnTimer, this, &ThisClass::RespawnTimerFinished, TimerDelay, false);
+	
+	if (HasAuthority())
+		GetWorldTimerManager().SetTimer(RespawnTimer, this, &ThisClass::RespawnTimerFinished, TimerDelay, false);
 }
 
 void AMainCharacter::RespawnTimerFinished()
@@ -287,7 +294,7 @@ void AMainCharacter::SetHUDHealth()
 void AMainCharacter::PlayHitReactMontage() const
 {
 	// If health <= 0.f, it should play the eliminated animation rather than the hit react.
-	if (!Combat || !Combat->EquippedWeapon || Health <= 0.f) return;
+	if (!Combat || /*!Combat->EquippedWeapon ||*/ Health <= 0.f) return;
 
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && HitReactMontage)
@@ -301,7 +308,7 @@ void AMainCharacter::PlayHitReactMontage() const
 void AMainCharacter::PlayDeathHipMontage() const
 {
 	// The montage is played only when the character is holding a weapon.
-	if (!Combat || !Combat->EquippedWeapon) return;
+	if (!Combat /*|| !Combat->EquippedWeapon*/) return;
 	
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && DeathHipMontage)
@@ -309,13 +316,16 @@ void AMainCharacter::PlayDeathHipMontage() const
 		AnimInstance->Montage_Play(DeathHipMontage);
 		const FName SectionName = FName("Death Hip 1");
 		AnimInstance->Montage_JumpToSection(SectionName);
+
+		// Play the animation montage and set the end delegate
+		AnimInstance->Montage_Play(DeathHipMontage);
 	}
 }
 
 void AMainCharacter::PlayDeathIronMontage() const
 {
 	// The montage is played only when the character is holding a weapon.
-	if (!Combat || !Combat->EquippedWeapon) return;
+	if (!Combat /*|| !Combat->EquippedWeapon*/) return;
 
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && DeathIronMontage)
@@ -683,19 +693,17 @@ void AMainCharacter::HandleHealth_OnRep(float HealthValue)
 		SetHUDHealth();
 
 	if (Health < HealthValue) 
-	{
 		PlayHitReactMontage();
-	}
 }
 
 void AMainCharacter::SetIsRespawned()
 {
 	// IsRespawned will restore its default value since the character is respawned.
 	IsRespawned = true;
-	HandleIsRespawned();
+	ClientHandleIsRespawned();
 }
 
-void AMainCharacter::HandleIsRespawned()
+void AMainCharacter::ClientHandleIsRespawned_Implementation()
 {
 	ShooterPlayerController = ShooterPlayerController ? ShooterPlayerController : Cast<AShooterPlayerController>(GetController());
 	if (ShooterPlayerController)

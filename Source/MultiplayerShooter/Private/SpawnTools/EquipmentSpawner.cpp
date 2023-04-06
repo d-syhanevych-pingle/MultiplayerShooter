@@ -38,7 +38,7 @@ void AEquipmentSpawner::EquipRandomWeaponForCharacter(AMainCharacter* MainCharac
 	if (!World)
 		return;
 
-	if (WeaponClasses.Num())
+	if (WeaponClasses.Num() && !MainCharacter->IsWeaponEquipped())
 	{
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.Owner = this;

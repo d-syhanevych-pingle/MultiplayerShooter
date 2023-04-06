@@ -2,13 +2,20 @@
 
 
 #include "GameState/ShooterGameState.h"
-#include "GameMode/ShooterGameMode.h"
+
 #include "GameFramework/PlayerState.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 #include "PlayerController/ShooterPlayerController.h"
 #include "PlayerState/ShooterPlayerState.h"
+AShooterGameState::AShooterGameState()
+{
+	bReplicates = true;
 
+	/*For new logged users*/
+	/*if(!HasAuthority())
+		StartTimer();*/
+}
 void AShooterGameState::UpdateTopScorePlayerStates(AShooterPlayerState* PlayerState)
 {
 	if (!PlayerState) return;
@@ -17,55 +24,46 @@ void AShooterGameState::UpdateTopScorePlayerStates(AShooterPlayerState* PlayerSt
 	{
 		TopScorePlayerStates.AddUnique(PlayerState);
 		TopScore = PlayerState->GetScore();
-		HandleTopScore();
-		HandleTopScorePlayerStates();
+		OnRep_TopScore();
+		OnRep_TopScorePlayerStates();
 	}
 	else if (TopScore == PlayerState->GetScore())
 	{
 		TopScorePlayerStates.AddUnique(PlayerState);
-		HandleTopScore();
-		HandleTopScorePlayerStates();
+		OnRep_TopScore();
+		OnRep_TopScorePlayerStates();
 	}
 	else if (TopScore < PlayerState->GetScore())
 	{
 		TopScorePlayerStates.Empty();
 		TopScorePlayerStates.AddUnique(PlayerState);
 		TopScore = PlayerState->GetScore();
-		HandleTopScore();
-		HandleTopScorePlayerStates();
+		OnRep_TopScore();
+		OnRep_TopScorePlayerStates();
 	}
 }
 
-void AShooterGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) 
+void AShooterGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(AShooterGameState, WarmupTime, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AShooterGameState, CooldownTime, COND_InitialOnly);
-
-	//StartTimer();
+	DOREPLIFETIME(AShooterGameState, MatchTime);
+	DOREPLIFETIME(AShooterGameState, WarmupTime);
+	DOREPLIFETIME(AShooterGameState, CooldownTime);
+	DOREPLIFETIME(AShooterGameState, TopScorePlayerStates);
+	DOREPLIFETIME(AShooterGameState, TopScore);
+	DOREPLIFETIME(AShooterGameState, IsTimerStarted);
 }
 
-void AShooterGameState::StartTimer()
+void AShooterGameState::StartTimer(bool IsStart)
 {
-	FTimerManager& TimerManager = GetWorldTimerManager();
-	TimerManager.SetTimer(TimerHandle_DefaultTimer, this, &AShooterGameState::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation() / GetWorldSettings()->DemoPlayTimeDilation, true);
+	IsTimerStarted = IsStart;
 }
 
-/*Timers logic moved to here*/
-void AShooterGameState::OnRep_ElapsedTime()
+void AShooterGameState::OnRep_IsTimerStarted()
 {
-	OnMatchTick.Broadcast(ElapsedTime);
-}
-
-void AShooterGameState::OnRep_WarmupTime()
-{
-	OnMatchWarmupTick.Broadcast(WarmupTime);
-}
-
-void AShooterGameState::OnRep_CooldownTime()
-{
-	OnMatchCooldownTick.Broadcast(CooldownTime);
+	if (IsTimerStarted)
+		DefaultTimer();
 }
 
 void AShooterGameState::OnRep_MatchState()
@@ -73,32 +71,36 @@ void AShooterGameState::OnRep_MatchState()
 	Super::OnRep_MatchState();
 
 	if (GetNetMode() != NM_DedicatedServer)
+	{
 		OnMatchStateChanged.Broadcast(MatchState);
+	}
 }
 
 void AShooterGameState::DefaultTimer()
 {
-	if (GetMatchState() == MatchState::WaitingToStart)
+	if (IsTimerStarted)
 	{
-		++WarmupTime;
-		if (GetNetMode() != NM_DedicatedServer)
+		if (GetMatchState() == MatchState::WaitingToStart)
 		{
-			OnRep_WarmupTime();
+			++WarmupTime;
+			OnMatchWarmupTick.Broadcast(WarmupTime);
 		}
-	}
-	if (GetMatchState() == MatchState::Cooldown)
-	{
-		++CooldownTime;
-		if (GetNetMode() != NM_DedicatedServer)
+		if (GetMatchState() == MatchState::Cooldown)
 		{
-			OnRep_CooldownTime();
+			++CooldownTime;
+			OnMatchCooldownTick.Broadcast(CooldownTime);
+		}
+		if (IsMatchInProgress())
+		{
+			++MatchTime;
+			OnMatchTick.Broadcast(MatchTime);
 		}
 	}
 
 	Super::DefaultTimer();
 }
 
-void AShooterGameState::HandleTopScore()
+void AShooterGameState::OnRep_TopScore()
 {
 	AShooterPlayerController* ShooterPlayerController = Cast<AShooterPlayerController>(UGameplayStatics::GetPlayerController(this, 0));
 	if (!ShooterPlayerController) return;
@@ -107,11 +109,20 @@ void AShooterGameState::HandleTopScore()
 	ShooterPlayerController->UpdateTopScore();
 }
 
-void AShooterGameState::HandleTopScorePlayerStates()
+void AShooterGameState::OnRep_TopScorePlayerStates()
 {
 	AShooterPlayerController* ShooterPlayerController = Cast<AShooterPlayerController>(UGameplayStatics::GetPlayerController(this, 0));
 	if (!ShooterPlayerController) return;
 	
 	// Updating the TopScorePlayer in the HUD
 	ShooterPlayerController->UpdateTopScorePlayer();
+}
+
+void AShooterGameState::PlayerJoined()
+{
+	CountJoinedPlayers++;
+	if (CountJoinedPlayers >= 2)
+	{
+		StartTimer(true);
+	}
 }

@@ -16,30 +16,27 @@ class MULTIPLAYERSHOOTER_API AShooterGameState : public AGameState
 {
 	GENERATED_BODY()
 
-public:
+public: AShooterGameState();
 	/** Once a player is eliminated, we then need to update the array: TopScorePlayerStates and update the TopScore player in the HUD */
 	void UpdateTopScorePlayerStates(class AShooterPlayerState* PlayerState);
-	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps);
-	virtual void DefaultTimer();
-	void StartTimer();
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void DefaultTimer() override;
 
-	UPROPERTY(ReplicatedUsing=OnRep_WarmupTime, BlueprintReadOnly)
+	void StartTimer(bool IsStart);
+
+	UPROPERTY(Replicated, BlueprintReadOnly)
 	int32 WarmupTime;
 
-	UPROPERTY(ReplicatedUsing=OnRep_CooldownTime, BlueprintReadOnly)
+	UPROPERTY(Replicated, BlueprintReadOnly)
 	int32 CooldownTime;
 
-	//UFUNCTION()
-	virtual void OnRep_ElapsedTime(); 
-	
-	UFUNCTION()
-	void OnRep_CooldownTime();
-
-	UFUNCTION()
-	void OnRep_WarmupTime();
+	UPROPERTY(Replicated, BlueprintReadOnly)
+	int32 MatchTime;
 
 	//UFUNCTION()
 	virtual void OnRep_MatchState();
+
+	void PlayerJoined();
 
 	FOnMatchTick OnMatchTick;
 	FOnMatchCooldownTick OnMatchCooldownTick;
@@ -47,18 +44,30 @@ public:
 	FOnMatchStateChanged OnMatchStateChanged;
 
 private:
-	UPROPERTY()
+	UPROPERTY(Replicated)
 	float TopScore = 0.f;
 
 	/** The common code within OnRep_TopScore() */
-	void HandleTopScore();
+	UFUNCTION()
+	void OnRep_TopScore();
 
 	/** An array contains the top score players' states */
-	UPROPERTY()
+	UPROPERTY(Replicated)
 	TArray<class AShooterPlayerState*> TopScorePlayerStates;
 
 	/** The common code within OnRep_TopScorePlayerStates() */
-	void HandleTopScorePlayerStates();
+	UFUNCTION()
+	void OnRep_TopScorePlayerStates();
+
+	UFUNCTION()
+	void OnRep_IsTimerStarted();
+
+	UPROPERTY(ReplicatedUsing=OnRep_IsTimerStarted)
+	bool IsTimerStarted = false;
+
+	FTimerHandle TimerHandle_ShooterTickTimer;
+
+	int32 CountJoinedPlayers = 0;
 
 public:
 	FORCEINLINE float GetTopScore() const { return TopScore; }

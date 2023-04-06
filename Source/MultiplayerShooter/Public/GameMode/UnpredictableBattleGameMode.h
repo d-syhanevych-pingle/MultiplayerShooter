@@ -18,13 +18,14 @@ class MULTIPLAYERSHOOTER_API AUnpredictableBattleGameMode : public AShooterGameM
 protected:
 	virtual void BeginPlay() override;
 	//virtual APawn* SpawnDefaultPawnAtTransform(AController* NewPlayer, const FTransform& SpawnTransform) override;
-	virtual void PostLogin(APlayerController* NewPlayer) override;
 public:
 	UPROPERTY(EditDefaultsOnly, Category = "Match Parameters")
 	TSubclassOf<class AEquipmentSpawner> EquipmentSpawner;
 
 private:
 	AEquipmentSpawner* SpawnerEquipment;
+
+	virtual void GenericPlayerInitialization(AController* NewPlayer) override;
 
 	UFUNCTION()
 	void EquipRandomWeaponForCharacter(AShooterPlayerController* ShooterPlayerController);
