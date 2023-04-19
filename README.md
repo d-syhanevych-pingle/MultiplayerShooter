@@ -8,7 +8,7 @@ v0.19 - Player HUD fixed;
 06.04.2023
 v0.18 - Score system replication added;
 		Timer and spawn equipment after player login fixed;
-		Save score system by GameInstance added when traveling between levels.
+		Save score system implemented when traveling between levels.
 		
 14.03.2023
 v0.17 - Pickup Ammo replication added;
