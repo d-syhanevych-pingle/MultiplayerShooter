@@ -58,9 +58,6 @@ public:
 	/** Update the match time after matching */
 	UFUNCTION()
 	void UpdateMatchCountDown(int32 CurrentTime);
-
-protected:
-	virtual void BeginPlay() override;
 	
 private:
 	/** TSubclass of the CharacterOverlay Widget */

@@ -31,14 +31,6 @@ void AShooterHUD::DrawHUD()
 	}
 }
 
-void AShooterHUD::BeginPlay()
-{
-	Super::BeginPlay();
-
-	//ResetHUD();
-	//AddAnnouncement();
-}
-
 void AShooterHUD::ResetHUD(AShooterGameState* ShooterGameState)
 {
 	if (const AShooterGameMode* ShooterGameMode = Cast<AShooterGameMode>(ShooterGameState->GetDefaultGameMode()))
@@ -264,7 +256,8 @@ void AShooterHUD::UpdateMatchCountDown(int32 CurrentTime)
 void AShooterHUD::UpdateTopScorePlayer()
 {
 	const AShooterGameState* ShooterGameState = Cast<AShooterGameState>(UGameplayStatics::GetGameState(this));
-	if (!ShooterGameState) return;
+	if (!ShooterGameState)
+		return;
 
 	auto PlayerStates = ShooterGameState->GetTopScorePlayerStates();
 	if (PlayerStates.IsEmpty()) return;
@@ -283,7 +276,8 @@ void AShooterHUD::UpdateTopScorePlayer()
 void AShooterHUD::UpdateTopScore()
 {
 	const AShooterGameState* ShooterGameState = Cast<AShooterGameState>(UGameplayStatics::GetGameState(this));
-	if (!ShooterGameState) return;
+	if (!ShooterGameState)
+		return;
 
 	const auto PlayerStates = ShooterGameState->GetTopScorePlayerStates();
 	const float TopScore = ShooterGameState->GetTopScore();

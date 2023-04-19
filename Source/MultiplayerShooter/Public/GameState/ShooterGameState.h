@@ -44,7 +44,7 @@ public: AShooterGameState();
 	FOnMatchStateChanged OnMatchStateChanged;
 
 private:
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing=OnRep_TopScore)
 	float TopScore = 0.f;
 
 	/** The common code within OnRep_TopScore() */
@@ -52,7 +52,7 @@ private:
 	void OnRep_TopScore();
 
 	/** An array contains the top score players' states */
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing=OnRep_TopScorePlayerStates)
 	TArray<class AShooterPlayerState*> TopScorePlayerStates;
 
 	/** The common code within OnRep_TopScorePlayerStates() */

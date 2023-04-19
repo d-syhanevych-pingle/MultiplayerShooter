@@ -19,12 +19,6 @@
 void AShooterPlayerController::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-
-	//GetWorld()->GameStateSetEvent.Add(this, &AShooterPlayerController::ReSetHUD);
-
-	//GameStateSetDelegate.BindUObject(this, &AShooterPlayerController::ResetBindings);
-	//GetWorld()->GameStateSetEvent.Add(GameStateSetDelegate);
-	//ShooterGameState->OnMatchWarmupTick.AddDynamic(this, &AShooterHUD::UpdateAnnouncementWarmup);
 }
 
 
@@ -85,13 +79,6 @@ void AShooterPlayerController::ServerPawnPosses_Implementation()
 {
 	OnPawnPosses.Broadcast(this);
 }
-
-//void AShooterPlayerController::ReceivedPlayer()
-//{
-//	Super::ReceivedPlayer();
-//
-//	if (IsLocalController()) RequestServerTimeFromClient(GetWorld()->GetTimeSeconds());
-//}
 
 void AShooterPlayerController::UpdatePlayerHealth(float Health, float MaxHealth)
 {
@@ -181,7 +168,7 @@ void AShooterPlayerController::UpdateTopScore()
 	if (!ShooterHUD)
 		return;
 
-	ShooterHUD->UpdateTopScorePlayer();
+	ShooterHUD->UpdateTopScore();
 }
 
 void AShooterPlayerController::RefreshHUD()

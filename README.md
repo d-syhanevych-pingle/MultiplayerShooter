@@ -1,6 +1,10 @@
 MultiplayerShooter
 (Unreal Engine v5.1.1)
 -----------------------
+19.04.2023
+v0.19 - Player HUD fixed;
+		TopScore and TopScorePlayer Replication fixed;
+		
 06.04.2023
 v0.18 - Score system replication added;
 		Timer and spawn equipment after player login fixed;

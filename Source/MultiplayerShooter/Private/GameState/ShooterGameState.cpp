@@ -24,22 +24,16 @@ void AShooterGameState::UpdateTopScorePlayerStates(AShooterPlayerState* PlayerSt
 	{
 		TopScorePlayerStates.AddUnique(PlayerState);
 		TopScore = PlayerState->GetScore();
-		OnRep_TopScore();
-		OnRep_TopScorePlayerStates();
 	}
 	else if (TopScore == PlayerState->GetScore())
 	{
 		TopScorePlayerStates.AddUnique(PlayerState);
-		OnRep_TopScore();
-		OnRep_TopScorePlayerStates();
 	}
 	else if (TopScore < PlayerState->GetScore())
 	{
 		TopScorePlayerStates.Empty();
 		TopScorePlayerStates.AddUnique(PlayerState);
 		TopScore = PlayerState->GetScore();
-		OnRep_TopScore();
-		OnRep_TopScorePlayerStates();
 	}
 }
 
@@ -103,8 +97,10 @@ void AShooterGameState::DefaultTimer()
 void AShooterGameState::OnRep_TopScore()
 {
 	AShooterPlayerController* ShooterPlayerController = Cast<AShooterPlayerController>(UGameplayStatics::GetPlayerController(this, 0));
-	if (!ShooterPlayerController) return;
 	
+	if (!ShooterPlayerController || !ShooterPlayerController->IsLocalController())
+		return;
+
 	// Updating the TopScore in the HUD
 	ShooterPlayerController->UpdateTopScore();
 }
@@ -112,8 +108,10 @@ void AShooterGameState::OnRep_TopScore()
 void AShooterGameState::OnRep_TopScorePlayerStates()
 {
 	AShooterPlayerController* ShooterPlayerController = Cast<AShooterPlayerController>(UGameplayStatics::GetPlayerController(this, 0));
-	if (!ShooterPlayerController) return;
-	
+
+	if (!ShooterPlayerController || !ShooterPlayerController->IsLocalController())
+		return;
+
 	// Updating the TopScorePlayer in the HUD
 	ShooterPlayerController->UpdateTopScorePlayer();
 }
